@@ -1,0 +1,7 @@
+{
+  "name": "StreamFlix - TorBox & Filemoon Streaming Hub",
+  "description": "Plataforma de streaming estilo Netflix com sincronização automatizada TorBox, TMDB e Filemoon.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+

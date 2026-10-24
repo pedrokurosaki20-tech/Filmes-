@@ -1,0 +1,1245 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>StreamFlix - On-Demand Debrid Stream</title>
+    <meta name="description" content="Streaming Sob Demanda estilo Netflix com Debrid P2P e Auto-Limpeza rotativa TorBox." />
+    <meta property="og:title" content="StreamFlix - On-Demand Debrid Stream" />
+    <meta property="og:description" content="Streaming Sob Demanda estilo Netflix com Debrid P2P e Auto-Limpeza rotativa TorBox." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <!-- Video.js CDN para suporte avançado a múltiplas faixas de áudio -->
+    <link href="https://vjs.zencdn.net/8.10.0/video-js.css" rel="stylesheet" />
+    <script src="https://vjs.zencdn.net/8.10.0/video.min.js"></script>
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              netflixBg: '#000000',
+              netflixCard: '#141414',
+              netflixRed: '#E50914',
+              netflixRedHover: '#B80710',
+              netflixBorder: '#262626',
+              netflixGray: '#808080',
+              netflixLightGray: '#E5E5E5'
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+      
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        background-color: #000000;
+        color: #ffffff;
+        font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        margin: 0;
+        padding: 0;
+        overflow-x: hidden;
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      /* Custom scrollbars */
+      ::-webkit-scrollbar {
+        height: 6px;
+        width: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #000000;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #333333;
+        border-radius: 9999px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #E50914;
+      }
+
+      .no-scrollbar::-webkit-scrollbar {
+        display: none;
+      }
+      .no-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+      }
+
+      .text-netflix-shadow {
+        text-shadow: 0 2px 10px rgba(0,0,0,0.9);
+      }
+    </style>
+  </head>
+  <body class="bg-[#000000] text-white min-h-screen flex flex-col selection:bg-[#E50914] selection:text-white">
+
+    <!-- =========================================================================
+         BARRA DE NAVEGAÇÃO FIXA NO TOPO COM BUSCA ESTILO NETFLIX
+         ========================================================================= -->
+    <header class="fixed top-0 left-0 right-0 z-40 bg-[#000000]/95 backdrop-blur-md border-b border-[#222222] px-3 sm:px-6 py-2.5 transition-all">
+      <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
+        
+        <!-- Logo e Indicador SuperCDN Oficial -->
+        <div class="flex items-center justify-between w-full sm:w-auto">
+          <div class="flex items-center gap-2 cursor-pointer" onclick="resetToHome()">
+            <span class="text-[#E50914] font-black text-2xl tracking-tighter uppercase font-mono">STREAMFLIX</span>
+            <span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-[#141414] text-emerald-400 border border-emerald-900/80 flex items-center gap-1.5" title="Transmissão direta via SuperCDN Pobre Play">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              SUPERCDN OFICIAL
+            </span>
+          </div>
+
+          <!-- Indicador Rápido de Histórico no Mobile -->
+          <div class="sm:hidden flex items-center gap-2 text-xs">
+            <button onclick="toggleHistoryDrawer()" class="px-2 py-1 rounded bg-[#141414] border border-[#262626] text-neutral-300 font-mono text-[11px] flex items-center gap-1">
+              <svg class="w-3.5 h-3.5 text-[#E50914]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              <span id="mobile-history-count">0</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Barra de Busca Central Estilo Netflix -->
+        <div class="w-full sm:max-w-md flex items-center gap-2">
+          <form onsubmit="handleSearchSubmit(event)" class="relative w-full">
+            <input 
+              type="text" 
+              id="search-input" 
+              placeholder="Buscar filme ou série (ex: Vingadores, Breaking Bad, Batman)..." 
+              class="w-full px-4 py-2 pl-10 pr-9 rounded-full bg-[#141414] border border-[#262626] text-white text-xs sm:text-sm placeholder-neutral-500 focus:outline-none focus:border-[#E50914] focus:ring-1 focus:ring-[#E50914] transition-all"
+            />
+            <svg class="w-4 h-4 text-neutral-400 absolute left-3.5 top-2.5 sm:top-3 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+            <button 
+              type="button" 
+              id="clear-search-btn" 
+              onclick="clearSearch()" 
+              class="hidden absolute right-3 top-2 sm:top-2.5 text-neutral-400 hover:text-white text-xs font-bold p-1">
+              ✕
+            </button>
+          </form>
+
+          <!-- Botão Histórico de Assistidos -->
+          <button 
+            onclick="toggleHistoryDrawer()" 
+            class="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-full bg-[#141414] hover:bg-[#222222] border border-[#262626] text-neutral-300 text-xs font-mono font-medium transition-colors flex-shrink-0 cursor-pointer"
+            title="Ver filmes e séries assistidos recentemente">
+            <svg class="w-3.5 h-3.5 text-[#E50914]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <span id="header-history-label">0 assistidos</span>
+          </button>
+        </div>
+
+      </div>
+    </header>
+
+    <!-- Espaço para compensar a barra fixa -->
+    <div class="h-28 sm:h-20"></div>
+
+    <!-- =========================================================================
+         CONTEÚDO PRINCIPAL (INTERFACE NETFLIX ON-DEMAND)
+         ========================================================================= -->
+    <main class="flex-grow w-full max-w-7xl mx-auto px-3 sm:px-6 pb-20">
+
+      <!-- BANNER DE DESTAQUE HORIZONTAL NO TOPO -->
+      <div id="hero-banner" class="relative w-full rounded-2xl overflow-hidden bg-[#141414] border border-[#262626] min-h-[380px] sm:min-h-[460px] flex flex-col justify-end p-6 sm:p-10 mb-10 shadow-2xl">
+        <div id="hero-bg" class="absolute inset-0 bg-cover bg-center transition-all duration-700 opacity-60"></div>
+        <div class="absolute inset-0 bg-gradient-to-t from-[#000000] via-[#000000]/70 to-transparent"></div>
+        <div class="absolute inset-0 bg-gradient-to-r from-[#000000] via-[#000000]/60 to-transparent"></div>
+
+        <div class="relative z-10 max-w-2xl space-y-3">
+          <div class="flex items-center gap-2">
+            <span class="px-2 py-0.5 rounded bg-[#E50914] text-white text-[11px] font-bold uppercase tracking-wider">DESTAQUE EM ALTA</span>
+            <span id="hero-year" class="text-xs text-neutral-300 font-medium"></span>
+            <span id="hero-runtime" class="text-xs text-neutral-400 font-mono"></span>
+          </div>
+          
+          <h1 id="hero-title" class="text-2xl sm:text-4xl md:text-5xl font-black text-white leading-tight text-netflix-shadow tracking-tight">Carregando...</h1>
+          
+          <p id="hero-synopsis" class="text-xs sm:text-sm text-neutral-300 line-clamp-3 max-w-xl text-netflix-shadow leading-relaxed">
+            Selecione qualquer filme para iniciar o streaming instantâneo via Debrid TorBox com auto-limpeza inteligente.
+          </p>
+
+          <div class="flex flex-wrap items-center gap-3 pt-2">
+            <button id="hero-play-btn" onclick="playCurrentHero()" class="flex items-center gap-2 px-6 py-2.5 rounded-lg bg-[#E50914] hover:bg-[#B80710] active:scale-95 text-white font-bold text-sm transition-all shadow-lg shadow-[#E50914]/30 cursor-pointer">
+              <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+              <span>Assistir Agora</span>
+            </button>
+            <div class="text-[11px] text-neutral-400 flex items-center gap-1 font-mono">
+              <span class="text-[#E50914]">●</span> 100% P2P Debrid Direto
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SEÇÃO DE RESULTADOS DA BUSCA (Aparece quando o usuário pesquisa) -->
+      <section id="search-results-section" class="hidden mb-10 space-y-4">
+        <div class="flex items-center justify-between border-b border-[#262626] pb-2">
+          <div class="flex items-center gap-2">
+            <div class="w-1.5 h-5 bg-[#E50914] rounded-full"></div>
+            <h2 class="text-lg sm:text-xl font-bold tracking-tight text-white">Resultados da Busca</h2>
+          </div>
+          <span id="search-query-badge" class="text-xs font-mono text-neutral-400 bg-[#141414] px-2.5 py-1 rounded border border-[#262626]"></span>
+        </div>
+
+        <div id="search-results-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4">
+          <!-- Cards de busca gerados via JS -->
+        </div>
+
+        <div id="search-empty-state" class="hidden p-10 text-center bg-[#141414] rounded-xl border border-[#262626] text-neutral-400 text-sm">
+          Nenhum filme encontrado para o termo pesquisado. Tente o nome em inglês ou português.
+        </div>
+      </section>
+
+      <!-- CARROSSÉIS DINÂMICOS ESTILO NETFLIX (TMDB) -->
+      <div id="dynamic-carousels" class="space-y-10">
+
+        <!-- 1. EM ALTA HOJE -->
+        <div class="carousel-section">
+          <div class="flex items-center justify-between mb-3 px-1">
+            <div class="flex items-center gap-2">
+              <div class="w-1.5 h-5 bg-[#E50914] rounded-full"></div>
+              <h2 class="text-lg sm:text-xl font-bold tracking-tight text-white">Em Alta na Semana</h2>
+            </div>
+            <span class="text-xs font-mono text-neutral-400">TMDB Popular</span>
+          </div>
+          
+          <div id="carousel-trending" class="flex gap-3 sm:gap-4 overflow-x-auto no-scrollbar py-2 px-1 scroll-smooth">
+            <!-- Cards inseridos dinamicamente -->
+          </div>
+        </div>
+
+        <!-- 2. MAIS POPULARES -->
+        <div class="carousel-section">
+          <div class="flex items-center justify-between mb-3 px-1">
+            <div class="flex items-center gap-2">
+              <div class="w-1.5 h-5 bg-[#E50914] rounded-full"></div>
+              <h2 class="text-lg sm:text-xl font-bold tracking-tight text-white">Mais Populares</h2>
+            </div>
+            <span class="text-xs font-mono text-neutral-400">Sucessos Globais</span>
+          </div>
+          
+          <div id="carousel-popular" class="flex gap-3 sm:gap-4 overflow-x-auto no-scrollbar py-2 px-1 scroll-smooth">
+            <!-- Cards inseridos dinamicamente -->
+          </div>
+        </div>
+
+        <!-- 3. MAIS BEM AVALIADOS -->
+        <div class="carousel-section">
+          <div class="flex items-center justify-between mb-3 px-1">
+            <div class="flex items-center gap-2">
+              <div class="w-1.5 h-5 bg-[#E50914] rounded-full"></div>
+              <h2 class="text-lg sm:text-xl font-bold tracking-tight text-white">Mais Bem Avaliados</h2>
+            </div>
+            <span class="text-xs font-mono text-neutral-400">Top IMDb / TMDB</span>
+          </div>
+          
+          <div id="carousel-top-rated" class="flex gap-3 sm:gap-4 overflow-x-auto no-scrollbar py-2 px-1 scroll-smooth">
+            <!-- Cards inseridos dinamicamente -->
+          </div>
+        </div>
+
+      </div>
+
+    </main>
+
+    <!-- =========================================================================
+         PAINEL DRAWER DE HISTÓRICO DE REPRODUÇÃO SUPERCDN
+         ========================================================================= -->
+    <div id="history-drawer" class="fixed inset-y-0 right-0 z-50 w-full sm:w-96 bg-[#141414] border-l border-[#262626] shadow-2xl transform translate-x-full transition-transform duration-300 flex flex-col">
+      <div class="flex items-center justify-between p-4 bg-[#0a0a0a] border-b border-[#262626]">
+        <div class="flex items-center gap-2">
+          <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+          <h3 class="font-bold text-sm text-white">Histórico SuperCDN</h3>
+        </div>
+        <button onclick="toggleHistoryDrawer()" class="p-1 rounded text-neutral-400 hover:text-white cursor-pointer">✕</button>
+      </div>
+
+      <div class="p-4 bg-[#000000] border-b border-[#262626] text-xs text-neutral-300 space-y-1">
+        <p class="font-semibold text-white">Streaming Direto Pobre Play (plenoflu.com):</p>
+        <p class="text-neutral-400">Filmes e episódios assistidos são salvos localmente com o código IMDb para acesso instantâneo sem buffering.</p>
+      </div>
+
+      <div id="drawer-items-list" class="flex-grow p-4 overflow-y-auto space-y-3 font-mono text-xs">
+        <!-- Itens do histórico inseridos dinamicamente -->
+      </div>
+
+      <div class="p-3 bg-[#0a0a0a] border-t border-[#262626] flex items-center justify-between">
+        <button onclick="clearWatchHistory()" class="w-full py-2 rounded-lg bg-[#222222] hover:bg-[#E50914] text-neutral-200 hover:text-white text-xs font-semibold transition-colors flex items-center justify-center gap-2 cursor-pointer">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+          <span>Limpar Histórico</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- =========================================================================
+         MODAL DE STREAMING SUPERCDN: REPRODUÇÃO EM IFRAME OFICIAL (plenoflu.com)
+         ========================================================================= -->
+    <div id="player-modal" class="fixed inset-0 z-50 bg-black/95 backdrop-blur-md hidden flex flex-col items-center justify-start sm:justify-center p-2 sm:p-4 md:p-6 overflow-y-auto">
+      
+      <div id="modal-container-card" class="relative w-full max-w-5xl bg-[#141414] border border-[#262626] rounded-2xl overflow-hidden shadow-2xl flex flex-col my-auto transition-all">
+        
+        <!-- Topo do Modal -->
+        <div class="flex items-center justify-between px-4 py-3 bg-[#0a0a0a] border-b border-[#262626]">
+          <div class="flex items-center gap-2 overflow-hidden flex-wrap">
+            <span class="w-2.5 h-2.5 rounded-full bg-[#E50914] animate-pulse"></span>
+            <h3 id="modal-title" class="text-sm sm:text-base font-bold text-white truncate max-w-[200px] sm:max-w-md">Carregando Streaming...</h3>
+            <span id="modal-type-tag" class="px-2 py-0.5 rounded bg-neutral-800 text-[10px] font-mono text-neutral-300 uppercase font-bold">FILME</span>
+            <span id="modal-imdb-tag" class="px-2 py-0.5 rounded bg-[#1f1a08] text-amber-300 border border-amber-800/80 text-[10px] font-bold font-mono">IMDb: --</span>
+            <span id="modal-audio-tag" class="px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800/80 text-[10px] font-bold font-mono">🇧🇷 DUBLADO / DUAL</span>
+          </div>
+
+          <!-- Botão Fechar (X): Pausa e limpa iframe -->
+          <button id="modal-close-btn" onclick="closePlayerModal()" class="p-1.5 rounded-lg bg-[#222222] hover:bg-[#E50914] text-neutral-300 hover:text-white transition-all cursor-pointer flex-shrink-0" title="Fechar player">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+
+        <!-- Área do Player Iframe SuperCDN -->
+        <div id="player-frame-wrapper" class="w-full bg-[#000000] relative aspect-video min-h-[300px] sm:min-h-[440px] md:min-h-[500px] flex items-center justify-center overflow-hidden">
+          
+          <!-- Box de Carregamento Inicial -->
+          <div id="loader-overlay" class="absolute inset-0 z-20 bg-black/95 flex flex-col items-center justify-center p-6 text-center space-y-4">
+            <div id="loader-spinner" class="relative">
+              <div class="w-14 h-14 rounded-full border-4 border-[#222222] border-t-[#E50914] animate-spin"></div>
+              <div class="absolute inset-0 flex items-center justify-center">
+                <span class="text-[10px] font-mono text-[#E50914] font-bold">CDN</span>
+              </div>
+            </div>
+
+            <div id="loader-text-group" class="space-y-1.5">
+              <h4 id="loader-status" class="text-base font-bold text-white">Conectando ao SuperCDN...</h4>
+              <p id="loader-detail" class="text-xs text-neutral-400 font-mono max-w-sm">
+                Consultando TMDB para obter código IMDb e montar embed oficial plenoflu.com...
+              </p>
+            </div>
+
+            <div id="loader-bar-container" class="w-full max-w-xs bg-[#222222] h-1.5 rounded-full overflow-hidden">
+              <div id="loader-bar" class="bg-[#E50914] h-full w-2/3 transition-all duration-500"></div>
+            </div>
+          </div>
+
+          <!-- Ponto de Injeção Oficial do Iframe SuperCDN -->
+          <div id="iframe-mount-point" class="w-full h-full flex items-center justify-center">
+            <!-- Injetado dinamicamente: <iframe src="https://plenoflu.com/movie/{imdb_id}" ...> -->
+          </div>
+        </div>
+
+        <!-- Metadados da Mídia e Controles Adicionais -->
+        <div class="p-4 sm:p-5 space-y-3 bg-[#141414] border-t border-[#262626]">
+          
+          <!-- Seletor de Temporada e Episódio (para Séries) -->
+          <div id="series-controls-container" class="hidden flex flex-wrap items-center justify-between gap-3 p-3 rounded-xl bg-[#0a0a0a] border border-[#262626]">
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-[#E50914]"></span>
+                Navegação de Episódios:
+              </span>
+            </div>
+            
+            <div class="flex items-center gap-2">
+              <div class="flex items-center gap-1.5 bg-[#141414] px-2.5 py-1 rounded-lg border border-[#333]">
+                <label for="input-season" class="text-xs text-neutral-400 font-mono">Temp:</label>
+                <input type="number" id="input-season" min="1" max="50" value="1" class="w-12 bg-transparent text-white text-xs font-bold font-mono text-center focus:outline-none" />
+              </div>
+
+              <div class="flex items-center gap-1.5 bg-[#141414] px-2.5 py-1 rounded-lg border border-[#333]">
+                <label for="input-episode" class="text-xs text-neutral-400 font-mono">Ep:</label>
+                <input type="number" id="input-episode" min="1" max="100" value="1" class="w-12 bg-transparent text-white text-xs font-bold font-mono text-center focus:outline-none" />
+              </div>
+
+              <button onclick="carregarEpisodioManual()" class="px-3.5 py-1 rounded-lg bg-[#E50914] hover:bg-[#B80710] text-white text-xs font-bold transition-colors cursor-pointer flex items-center gap-1 shadow-md shadow-[#E50914]/20">
+                <span>Assistir Ep</span>
+                <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#262626] pb-3">
+            <div>
+              <div class="flex items-center gap-2 text-xs text-neutral-400">
+                <span id="modal-year" class="text-white font-medium"></span>
+                <span>•</span>
+                <span class="uppercase text-emerald-400 font-bold font-mono text-[11px]">SUPERCDN OFICIAL</span>
+                <span>•</span>
+                <span id="modal-endpoint-label" class="text-neutral-400 font-mono text-[11px] truncate max-w-xs">plenoflu.com</span>
+              </div>
+              <h2 id="modal-full-title" class="text-base sm:text-xl font-bold text-white mt-1">--</h2>
+            </div>
+
+            <!-- Botões de Ação do Player -->
+            <div class="flex items-center gap-2 flex-wrap">
+              <button onclick="toggleFullscreenPlayer()" class="px-3 py-1.5 rounded-lg bg-[#000000] hover:bg-[#222222] border border-[#333333] text-xs font-mono text-neutral-200 hover:text-white transition-all flex items-center gap-1.5 cursor-pointer" title="Tela Cheia">
+                <svg class="w-3.5 h-3.5 text-neutral-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-5h-4m4 0v4m0-4l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/></svg>
+                <span>Tela Cheia</span>
+              </button>
+
+              <button onclick="copyEmbedUrl()" class="px-3 py-1.5 rounded-lg bg-[#000000] hover:bg-[#222222] border border-[#333333] text-xs font-mono text-neutral-300 hover:text-white transition-all flex items-center gap-1.5 cursor-pointer" title="Copiar URL de embed">
+                <svg class="w-3.5 h-3.5 text-[#E50914]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                <span id="copy-stream-btn-text">Copiar Embed</span>
+              </button>
+
+              <button onclick="openEmbedInNewTab()" class="px-3.5 py-1.5 rounded-lg bg-sky-950/80 hover:bg-sky-900 border border-sky-600/70 text-xs font-bold text-sky-200 hover:text-white transition-all flex items-center gap-1.5 cursor-pointer shadow-md shadow-sky-950/40" title="Assistir em Nova Aba">
+                <svg class="w-3.5 h-3.5 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                <span>Assistir em Nova Aba</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Banner de Fallback Automático: Conexão Recusada ou Bloqueio de Iframe -->
+          <div class="p-3 rounded-xl bg-neutral-900/90 border border-neutral-700/80 text-xs text-neutral-300 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div class="flex items-center gap-2.5">
+              <span class="flex-shrink-0 w-7 h-7 rounded-lg bg-amber-500/20 border border-amber-500/40 text-amber-400 flex items-center justify-center font-bold text-sm">⚠️</span>
+              <div>
+                <p class="font-bold text-white text-xs">A conexão foi recusada pelo player ou tela preta?</p>
+                <p class="text-[11px] text-neutral-400">Clique em Assistir Direto para contornar qualquer política X-Frame-Options do provedor.</p>
+              </div>
+            </div>
+            <button onclick="openEmbedInNewTab()" class="px-3.5 py-1.5 rounded-lg bg-[#E50914] hover:bg-[#b80710] text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap shadow-md">
+              <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M14 3h7v7h-2V6.41l-9.29 9.3-1.42-1.42 9.3-9.29H14V3zM5 5h6V3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-6h-2v6H5V5z"/></svg>
+              <span>Abrir Direto</span>
+            </button>
+          </div>
+
+          <p id="modal-synopsis" class="text-xs sm:text-sm text-neutral-300 leading-relaxed max-h-20 overflow-y-auto">
+            Sinopse indisponível.
+          </p>
+
+          <div class="p-2.5 rounded-xl bg-[#0a0a0a] border border-[#262626] text-xs text-neutral-400 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="text-sm">🛡️</span>
+              <span class="text-[11px] text-neutral-300">Transmissão segura com aceleração de hardware e áudio dublado em português.</span>
+            </div>
+            <span class="text-[10px] font-mono text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-900/50">1080p Full HD</span>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- NOTIFICAÇÃO TOAST FLUTUANTE -->
+    <div id="toast" class="fixed bottom-5 right-5 z-50 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none px-4 py-3 rounded-xl bg-[#141414] border border-[#E50914] text-white text-xs sm:text-sm font-medium shadow-2xl flex items-center gap-2">
+      <span id="toast-icon" class="text-[#E50914] font-bold">●</span>
+      <span id="toast-msg">Notificação</span>
+    </div>
+
+    <!-- =========================================================================
+         ENGENHARIA E CÓDIGO JAVASCRIPT: ON-DEMAND STREAM COM AUTO-LIMPEZA
+         ========================================================================= -->
+    <script>
+      // =========================================================================
+      // CONSTANTES E ESTADO SUPERCDN (POBRE PLAY / plenoflu.com)
+      // =========================================================================
+      const TMDB_API_KEY = "4b50180f870c7d5977cee36f9da052ec";
+      const STORAGE_WATCH_HISTORY = "streamflix_history_supercdn_v1";
+
+      // Estado Global da Aplicação
+      let currentHeroMovie = null;
+      let currentProcessingMovie = null;
+      let currentImdbId = "";
+      let currentMediaType = "movie"; // 'movie' ou 'tvshow'
+      let currentSeason = 1;
+      let currentEpisode = 1;
+      let currentEmbedUrl = "";
+
+      // =========================================================================
+      // UTILITÁRIO TOAST E FEEDBACK
+      // =========================================================================
+      function showToast(message, isError = false) {
+        const toast = document.getElementById('toast');
+        const msgSpan = document.getElementById('toast-msg');
+        const iconSpan = document.getElementById('toast-icon');
+        msgSpan.innerText = message;
+        iconSpan.innerText = isError ? '✖' : '✔';
+        iconSpan.className = isError ? 'text-red-500 font-bold' : 'text-emerald-400 font-bold';
+        toast.classList.remove('translate-y-20', 'opacity-0');
+        setTimeout(() => toast.classList.add('translate-y-20', 'opacity-0'), 3500);
+      }
+
+      // =========================================================================
+      // 1. MECANISMO DE BUSCA E CAPTURA P2P MULTI-TRACKER (PRIORIDADE POR SEEDERS)
+      // =========================================================================
+      async function handleSearchSubmit(e) {
+        if (e) e.preventDefault();
+        const input = document.getElementById('search-input');
+        const query = input.value.trim();
+        if (!query) return;
+
+        document.getElementById('clear-search-btn').classList.remove('hidden');
+        document.getElementById('search-query-badge').innerText = `Termo: "${query}"`;
+        document.getElementById('search-results-section').classList.remove('hidden');
+
+        const grid = document.getElementById('search-results-grid');
+        const emptyState = document.getElementById('search-empty-state');
+        grid.innerHTML = '<div class="col-span-full py-8 text-center text-neutral-400 text-xs font-mono">Buscando no TMDB...</div>';
+        emptyState.classList.add('hidden');
+
+        try {
+          // Busca multi (Filmes e Séries/Animes) no TMDB
+          const res = await fetch(`https://api.themoviedb.org/3/search/multi?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}&language=pt-BR&include_adult=false`);
+          const data = await res.json();
+          let results = (data.results || []).filter(item => item.media_type === 'movie' || item.media_type === 'tv');
+
+          // Fallback se multi não trouxer nada
+          if (results.length === 0) {
+            const resFallback = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}&language=pt-BR&include_adult=false`);
+            const dataFallback = await resFallback.json();
+            results = dataFallback.results || [];
+          }
+
+          if (results.length === 0) {
+            grid.innerHTML = '';
+            emptyState.classList.remove('hidden');
+            return;
+          }
+
+          grid.innerHTML = results.map(m => renderMovieCard(m)).join('');
+          
+          // Scroll suave até os resultados
+          document.getElementById('search-results-section').scrollIntoView({ behavior: 'smooth' });
+        } catch (err) {
+          grid.innerHTML = `<div class="col-span-full py-8 text-center text-red-400 text-xs">Erro na busca: ${err.message}</div>`;
+        }
+      }
+
+      function clearSearch() {
+        document.getElementById('search-input').value = '';
+        document.getElementById('clear-search-btn').classList.add('hidden');
+        document.getElementById('search-results-section').classList.add('hidden');
+      }
+
+      function resetToHome() {
+        clearSearch();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+
+      // Renderiza card de filme/série estilo Netflix
+      function renderMovieCard(item) {
+        const isTv = item.media_type === 'tv' || (!item.title && !!item.name);
+        const title = item.title || item.name || item.original_title || item.original_name || 'Sem título';
+        const year = (item.release_date || item.first_air_date || '').substring(0, 4) || '----';
+        const poster = item.poster_path 
+          ? `https://image.tmdb.org/t/p/w500${item.poster_path}`
+          : 'https://images.unsplash.com/photo-1594909122845-11baa439b7bf?w=500&auto=format&fit=crop&q=60';
+        const backdrop = item.backdrop_path 
+          ? `https://image.tmdb.org/t/p/original${item.backdrop_path}` 
+          : poster;
+
+        const payload = JSON.stringify({
+          id: item.id,
+          title: title,
+          original_title: item.original_title || item.original_name || title,
+          year: year,
+          overview: item.overview || 'Sinopse não disponível.',
+          poster: poster,
+          backdrop: backdrop,
+          media_type: isTv ? 'tvshow' : 'movie'
+        }).replace(/'/g, "&#39;");
+
+        return `
+          <div onclick='initiateOnDemandPlayback(${payload})' 
+               class="group relative flex-none w-[130px] sm:w-[160px] md:w-[180px] aspect-[2/3] rounded-xl overflow-hidden bg-[#141414] border border-[#262626] cursor-pointer transform transition-all duration-300 hover:scale-105 hover:z-20 hover:border-[#E50914] hover:shadow-2xl hover:shadow-[#E50914]/20 select-none">
+            <img src="${poster}" 
+                 alt="${title}" 
+                 loading="lazy" 
+                 class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                 onerror="this.src='https://images.unsplash.com/photo-1594909122845-11baa439b7bf?w=500&auto=format&fit=crop&q=60'" />
+
+            <div class="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-2.5">
+              <div class="flex items-center justify-between mb-1">
+                <div class="w-7 h-7 rounded-full bg-[#E50914] text-white flex items-center justify-center shadow-lg transform group-hover:scale-110 transition-transform">
+                  <svg class="w-3.5 h-3.5 fill-current ml-0.5" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                </div>
+                <span class="px-1.5 py-0.5 rounded ${isTv ? 'bg-indigo-900/90 text-indigo-300 border border-indigo-700/60' : 'bg-neutral-800 text-neutral-300'} text-[9px] font-mono font-bold uppercase">${isTv ? 'SÉRIE' : 'FILME'}</span>
+              </div>
+              <h4 class="text-xs font-bold text-white line-clamp-1">${title}</h4>
+              <span class="text-[10px] text-neutral-300 font-medium">${year}</span>
+            </div>
+          </div>
+        `;
+      }
+
+      // =========================================================================
+      // CARREGAMENTO DOS CARROSSÉIS DINÂMICOS DO TMDB
+      // =========================================================================
+      async function loadDynamicCatalog() {
+        try {
+          // 1. Trending / Em Alta
+          const resTrending = await fetch(`https://api.themoviedb.org/3/trending/movie/week?api_key=${TMDB_API_KEY}&language=pt-BR`);
+          const dataTrending = await resTrending.json();
+          const trendingMovies = dataTrending.results || [];
+          document.getElementById('carousel-trending').innerHTML = trendingMovies.map(m => renderMovieCard(m)).join('');
+
+          // Define Banner Principal com o 1º filme em alta
+          if (trendingMovies.length > 0) {
+            setupHeroBanner(trendingMovies[0]);
+          }
+
+          // 2. Populares
+          const resPopular = await fetch(`https://api.themoviedb.org/3/movie/popular?api_key=${TMDB_API_KEY}&language=pt-BR&page=1`);
+          const dataPopular = await resPopular.json();
+          document.getElementById('carousel-popular').innerHTML = (dataPopular.results || []).map(m => renderMovieCard(m)).join('');
+
+          // 3. Mais Bem Avaliados
+          const resTop = await fetch(`https://api.themoviedb.org/3/movie/top_rated?api_key=${TMDB_API_KEY}&language=pt-BR&page=1`);
+          const dataTop = await resTop.json();
+          document.getElementById('carousel-top-rated').innerHTML = (dataTop.results || []).map(m => renderMovieCard(m)).join('');
+
+        } catch (err) {
+          console.error("Erro ao carregar catálogo dinâmico", err);
+        }
+      }
+
+      function setupHeroBanner(movie) {
+        currentHeroMovie = {
+          id: movie.id,
+          title: movie.title || movie.original_title,
+          original_title: movie.original_title || movie.title,
+          year: (movie.release_date || '').substring(0, 4) || '2024',
+          overview: movie.overview || 'Sinopse não disponível.',
+          poster: movie.poster_path ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` : '',
+          backdrop: movie.backdrop_path ? `https://image.tmdb.org/t/p/original${movie.backdrop_path}` : ''
+        };
+
+        document.getElementById('hero-title').innerText = currentHeroMovie.title;
+        document.getElementById('hero-synopsis').innerText = currentHeroMovie.overview;
+        document.getElementById('hero-year').innerText = currentHeroMovie.year;
+        document.getElementById('hero-bg').style.backgroundImage = `url('${currentHeroMovie.backdrop || currentHeroMovie.poster}')`;
+      }
+
+      function playCurrentHero() {
+        if (currentHeroMovie) {
+          initiateOnDemandPlayback(currentHeroMovie);
+        }
+      }
+
+      // =========================================================================
+      // MÓDULO OFICIAL DE TRANSMISSÃO SUPERCDN / POBRE PLAY (plenoflu.com)
+      // =========================================================================
+      //
+      // URLs Oficiais Obrigatórias:
+      // - Filmes:            https://plenoflu.com/movie/{imdb_id}
+      // - Séries (Geral):    https://plenoflu.com/tvshow/{imdb_id}
+      // - Temporadas:        https://plenoflu.com/tvshow/{imdb_id}/{season}
+      // - Episódios:         https://plenoflu.com/tvshow/{imdb_id}/{season}/{episode}
+      //
+      // Atributos Oficiais de Segurança do Iframe:
+      // width="100%" height="100%" scrolling="no" frameborder="0"
+      // allowfullscreen="" webkitallowfullscreen="" mozallowfullscreen=""
+      // =========================================================================
+
+      /**
+       * 1. OBTENÇÃO DO IMDB ID (Conversão Nome/Ano -> 'tt...')
+       * 
+       * Consulta a API do TMDB (e OMDb como contingência) para pesquisar o filme ou
+       * série e obter o código canônico do IMDb correspondente (ex: 'tt10872600').
+       * Se o usuário já tiver inserido diretamente um código 'tt...', o método retorna direto.
+       * 
+       * @param {string} nomeConteudo Título do filme ou série (ex: "Vingadores", "Batman 2022")
+       * @param {string|number} ano Ano de lançamento para desempate preciso (opcional)
+       * @param {string} tipo Tipo de mídia: 'movie' ou 'tvshow'/'tv' (padrão: 'movie')
+       * @returns {Promise<string>} Código IMDb minúsculo (ex: 'tt10872600')
+       */
+      async function obterImdbId(nomeConteudo, ano, tipo = 'movie') {
+        if (!nomeConteudo || !nomeConteudo.trim()) {
+          throw new Error("[SuperCDN] Nome do conteúdo não fornecido para busca do IMDb ID.");
+        }
+
+        const termoLimpo = nomeConteudo.trim();
+
+        // Se o termo já for um identificador IMDb direto (ex: 'tt10872600')
+        const regexImdbDireto = /^tt\d{6,10}$/i;
+        if (regexImdbDireto.test(termoLimpo)) {
+          console.log("[SuperCDN] IMDb ID direto fornecido:", termoLimpo);
+          return termoLimpo.toLowerCase();
+        }
+
+        const isTvShow = tipo === 'tv' || tipo === 'tvshow';
+        const anoStr = ano ? String(ano).trim() : '';
+
+        try {
+          // PASSO 1: Busca no TMDB
+          let urlBusca = '';
+          if (isTvShow) {
+            urlBusca = `https://api.themoviedb.org/3/search/tv?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(termoLimpo)}&language=pt-BR&include_adult=false${anoStr ? `&first_air_date_year=${anoStr}` : ''}`;
+          } else {
+            urlBusca = `https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(termoLimpo)}&language=pt-BR&include_adult=false${anoStr ? `&year=${anoStr}` : ''}`;
+          }
+
+          let res = await fetch(urlBusca);
+          let data = await res.json();
+          let resultados = data.results || [];
+
+          // Caso a busca estrita com o ano não retorne itens, tenta sem restrição de ano
+          if (resultados.length === 0 && anoStr) {
+            console.log(`[SuperCDN] Nenhum resultado com ano ${anoStr}. Buscando de forma abrangente para "${termoLimpo}"...`);
+            const fallbackBusca = isTvShow
+              ? `https://api.themoviedb.org/3/search/tv?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(termoLimpo)}&language=pt-BR&include_adult=false`
+              : `https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(termoLimpo)}&language=pt-BR&include_adult=false`;
+            const fallbackRes = await fetch(fallbackBusca);
+            const fallbackData = await fallbackRes.json();
+            resultados = fallbackData.results || [];
+          }
+
+          // Se ainda assim não encontrou, realiza busca multi-tipo
+          if (resultados.length === 0) {
+            const multiUrl = `https://api.themoviedb.org/3/search/multi?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(termoLimpo)}&language=pt-BR&include_adult=false`;
+            const multiRes = await fetch(multiUrl);
+            const multiData = await multiRes.json();
+            resultados = (multiData.results || []).filter(r => r.media_type === 'movie' || r.media_type === 'tv');
+          }
+
+          if (resultados.length === 0) {
+            throw new Error(`Nenhum título encontrado no catálogo para "${termoLimpo}".`);
+          }
+
+          const midiaEncontrada = resultados[0];
+          const tmdbId = midiaEncontrada.id;
+          const mediaTypeReal = midiaEncontrada.media_type || (isTvShow ? 'tv' : 'movie');
+
+          console.log(`[SuperCDN] Mídia identificada: "${midiaEncontrada.title || midiaEncontrada.name}" (TMDB ID: ${tmdbId}, Tipo: ${mediaTypeReal})`);
+
+          // PASSO 2: Resgate do IMDb ID canônico
+          let imdbIdEncontrado = null;
+
+          if (mediaTypeReal === 'tv') {
+            const extRes = await fetch(`https://api.themoviedb.org/3/tv/${tmdbId}/external_ids?api_key=${TMDB_API_KEY}`);
+            if (extRes.ok) {
+              const extJson = await extRes.json();
+              imdbIdEncontrado = extJson.imdb_id || null;
+            }
+          } else {
+            const movieRes = await fetch(`https://api.themoviedb.org/3/movie/${tmdbId}?api_key=${TMDB_API_KEY}`);
+            if (movieRes.ok) {
+              const movieJson = await movieRes.json();
+              imdbIdEncontrado = movieJson.imdb_id || null;
+            }
+            if (!imdbIdEncontrado) {
+              const extRes = await fetch(`https://api.themoviedb.org/3/movie/${tmdbId}/external_ids?api_key=${TMDB_API_KEY}`);
+              if (extRes.ok) {
+                const extJson = await extRes.json();
+                imdbIdEncontrado = extJson.imdb_id || null;
+              }
+            }
+          }
+
+          // Validação estrita do padrão 'tt...'
+          if (imdbIdEncontrado && regexImdbDireto.test(imdbIdEncontrado.trim())) {
+            const cleanImdb = imdbIdEncontrado.trim().toLowerCase();
+            console.log("[SuperCDN] IMDb ID canônico obtido:", cleanImdb);
+            return cleanImdb;
+          }
+
+          // PASSO 3: Contingência OMDb API pública
+          try {
+            const omdbRes = await fetch(`https://www.omdbapi.com/?t=${encodeURIComponent(termoLimpo)}&${anoStr ? `y=${anoStr}&` : ''}apikey=b7da8d63`);
+            if (omdbRes.ok) {
+              const omdbJson = await omdbRes.json();
+              if (omdbJson && omdbJson.imdbID && regexImdbDireto.test(omdbJson.imdbID)) {
+                console.log("[SuperCDN] IMDb ID obtido via contingência OMDb:", omdbJson.imdbID);
+                return omdbJson.imdbID.toLowerCase();
+              }
+            }
+          } catch (omdbErr) {
+            console.warn("[SuperCDN] OMDb fallback indisponível.");
+          }
+
+          throw new Error(`O título "${termoLimpo}" foi localizado, mas não possui código IMDb associado.`);
+
+        } catch (erro) {
+          console.error("[SuperCDN] Erro em obterImdbId:", erro);
+          throw erro;
+        }
+      }
+
+      /**
+       * 2. CONSTRUÇÃO DAS URLs SUPERCDN (plenoflu.com)
+       * 
+       * Padrões da documentação:
+       * - Filmes:            https://plenoflu.com/movie/{imdb_id}
+       * - Séries (Geral):    https://plenoflu.com/tvshow/{imdb_id}
+       * - Temporadas:        https://plenoflu.com/tvshow/{imdb_id}/{season}
+       * - Episódios:         https://plenoflu.com/tvshow/{imdb_id}/{season}/{episode}
+       * 
+       * @param {string} imdbId Código do IMDb (ex: 'tt10872600')
+       * @param {string} tipo 'movie' ou 'tvshow'
+       * @param {string|number} season Número da temporada (opcional)
+       * @param {string|number} episode Número do episódio (opcional)
+       * @returns {string} URL de embed completa
+       */
+      function montarUrlSuperCDN(imdbId, tipo = 'movie', season = '', episode = '') {
+        if (!imdbId) {
+          throw new Error("[SuperCDN] IMDb ID é obrigatório para montar a URL de embed.");
+        }
+
+        const cleanImdb = imdbId.trim().toLowerCase();
+        const cleanSeason = season !== '' && season !== null && season !== undefined ? String(season).trim() : '';
+        const cleanEpisode = episode !== '' && episode !== null && episode !== undefined ? String(episode).trim() : '';
+
+        // 1. Caso Filme
+        if (tipo === 'movie') {
+          return `https://plenoflu.com/movie/${cleanImdb}`;
+        }
+
+        // 2. Caso Série com Episódio e Temporada
+        if (cleanSeason && cleanEpisode) {
+          return `https://plenoflu.com/tvshow/${cleanImdb}/${cleanSeason}/${cleanEpisode}`;
+        }
+
+        // 3. Caso Série com Temporada específica
+        if (cleanSeason) {
+          return `https://plenoflu.com/tvshow/${cleanImdb}/${cleanSeason}`;
+        }
+
+        // 4. Caso Série Geral
+        return `https://plenoflu.com/tvshow/${cleanImdb}`;
+      }
+
+      /**
+       * 3. FUNÇÃO GERADORA DO PLAYER (Iframe SuperCDN)
+       * 
+       * Constrói e retorna a tag HTML do iframe do player configurada com os atributos
+       * obrigatórios extraídos da documentação e script nativo do SuperCDN (Pobre Play):
+       * width="100%" height="100%" scrolling="no" frameborder="0" allowfullscreen="" webkitallowfullscreen="" mozallowfullscreen=""
+       * 
+       * @param {string} imdbId Código do IMDb (ex: 'tt10872600')
+       * @param {string} tipo 'movie' ou 'tvshow'
+       * @param {string|number} season Número da temporada (opcional)
+       * @param {string|number} episode Número do episódio (opcional)
+       * @returns {string} Tag HTML completa do <iframe>
+       */
+      function renderizarPlayerSuperCDN(imdbId, tipo = 'movie', season = '', episode = '') {
+        const urlTransmissao = montarUrlSuperCDN(imdbId, tipo, season, episode);
+
+        return `<iframe 
+    src="${urlTransmissao}" 
+    width="100%" 
+    height="100%" 
+    frameborder="0" 
+    scrolling="no" 
+    allowfullscreen="true" 
+    webkitallowfullscreen="true" 
+    mozallowfullscreen="true"
+    referrerpolicy="strict-origin-when-cross-origin"
+    allow="autoplay; encrypted-media; picture-in-picture">
+</iframe>`;
+      }
+
+      /**
+       * 4. FLUXO PRINCIPAL: INICIA REPRODUÇÃO SOB DEMANDA (SuperCDN)
+       * 
+       * Executado ao clicar em qualquer filme ou episódio do catálogo.
+       * 
+       * @param {object} movie Objeto do filme/série com metadados
+       * @param {number} season Temporada (se série)
+       * @param {number} episode Episódio (se série)
+       */
+      async function initiateOnDemandPlayback(movie, season = 1, episode = 1) {
+        // 1. Abre a interface do modal e prepara elementos
+        openPlayerModalUi(movie, season, episode);
+
+        try {
+          const mediaType = (movie.media_type === 'tv' || movie.media_type === 'tvshow') ? 'tvshow' : 'movie';
+          currentMediaType = mediaType;
+          currentSeason = parseInt(season, 10) || 1;
+          currentEpisode = parseInt(episode, 10) || 1;
+
+          // Etapa 1: Obtenção do IMDb ID canônico
+          updateModalProgress(
+            'Localizando IMDb ID Oficial...',
+            `Consultando metadados no TMDB para "${movie.title || movie.name}"...`,
+            40
+          );
+
+          const imdbId = await obterImdbId(movie.title || movie.name, movie.year, mediaType);
+          currentImdbId = imdbId;
+
+          // Atualiza tags visuais no modal
+          const imdbTag = document.getElementById('modal-imdb-tag');
+          if (imdbTag) {
+            imdbTag.innerText = `IMDb: ${imdbId}`;
+            imdbTag.className = "px-2 py-0.5 rounded bg-amber-950/80 text-amber-300 border border-amber-600/70 text-[10px] font-bold font-mono tracking-wider";
+          }
+
+          const typeTag = document.getElementById('modal-type-tag');
+          if (typeTag) {
+            typeTag.innerText = mediaType === 'tvshow' ? 'SÉRIE' : 'FILME';
+            typeTag.className = mediaType === 'tvshow' 
+              ? "px-2 py-0.5 rounded bg-indigo-950/80 text-indigo-300 border border-indigo-700/60 text-[10px] font-bold font-mono"
+              : "px-2 py-0.5 rounded bg-neutral-800 text-neutral-300 border border-neutral-700 text-[10px] font-bold font-mono";
+          }
+
+          // Seletor de episódios para séries
+          const seriesControls = document.getElementById('series-controls-container');
+          if (seriesControls) {
+            if (mediaType === 'tvshow') {
+              seriesControls.classList.remove('hidden');
+              const inputSeason = document.getElementById('input-season');
+              const inputEpisode = document.getElementById('input-episode');
+              if (inputSeason) inputSeason.value = currentSeason;
+              if (inputEpisode) inputEpisode.value = currentEpisode;
+            } else {
+              seriesControls.classList.add('hidden');
+            }
+          }
+
+          // Etapa 2: Montagem do Player SuperCDN plenoflu.com
+          updateModalProgress(
+            'Gerando Player SuperCDN (plenoflu.com)...',
+            `Montando embed com atributos oficiais de tela cheia para ${imdbId}...`,
+            85
+          );
+
+          const embedUrl = montarUrlSuperCDN(imdbId, mediaType, currentSeason, currentEpisode);
+          currentEmbedUrl = embedUrl;
+
+          const endpointLabel = document.getElementById('modal-endpoint-label');
+          if (endpointLabel) {
+            endpointLabel.innerText = embedUrl;
+            endpointLabel.title = embedUrl;
+          }
+
+          // Injeção do <iframe> oficial
+          const iframeHtml = renderizarPlayerSuperCDN(imdbId, mediaType, currentSeason, currentEpisode);
+          const mountPoint = document.getElementById('iframe-mount-point');
+          if (mountPoint) {
+            mountPoint.innerHTML = iframeHtml;
+          }
+
+          // Salva no histórico de reprodução
+          saveWatchHistory({
+            imdbId: imdbId,
+            title: movie.title || movie.name,
+            year: movie.year,
+            poster: movie.poster,
+            tipo: mediaType,
+            season: mediaType === 'tvshow' ? currentSeason : undefined,
+            episode: mediaType === 'tvshow' ? currentEpisode : undefined,
+            timestamp: Date.now()
+          });
+
+          // Finaliza e oculta a camada de carregamento
+          setTimeout(() => {
+            const loaderOverlay = document.getElementById('loader-overlay');
+            if (loaderOverlay) {
+              loaderOverlay.classList.add('opacity-0', 'pointer-events-none');
+              setTimeout(() => loaderOverlay.classList.add('hidden'), 350);
+            }
+          }, 450);
+
+        } catch (err) {
+          console.error('[SuperCDN] Falha no fluxo:', err);
+          updateModalProgress(
+            'Falha ao Carregar Transmissão',
+            `${err.message || 'Não foi possível gerar o embed do SuperCDN.'}`,
+            100,
+            true
+          );
+          showToast(`Erro: ${err.message}`, true);
+        }
+      }
+
+      /**
+       * 5. CARREGAMENTO MANUAL DE EPISÓDIO PARA SÉRIES
+       */
+      function carregarEpisodioManual() {
+        if (!currentImdbId) {
+          showToast("Nenhuma série ativa no momento.", true);
+          return;
+        }
+
+        const inputSeason = document.getElementById('input-season');
+        const inputEpisode = document.getElementById('input-episode');
+        const season = inputSeason ? parseInt(inputSeason.value, 10) || 1 : 1;
+        const episode = inputEpisode ? parseInt(inputEpisode.value, 10) || 1 : 1;
+
+        currentSeason = season;
+        currentEpisode = episode;
+
+        const embedUrl = montarUrlSuperCDN(currentImdbId, 'tvshow', season, episode);
+        currentEmbedUrl = embedUrl;
+
+        const endpointLabel = document.getElementById('modal-endpoint-label');
+        if (endpointLabel) {
+          endpointLabel.innerText = embedUrl;
+          endpointLabel.title = embedUrl;
+        }
+
+        const mountPoint = document.getElementById('iframe-mount-point');
+        if (mountPoint) {
+          mountPoint.innerHTML = renderizarPlayerSuperCDN(currentImdbId, 'tvshow', season, episode);
+        }
+
+        showToast(`Carregando Temporada ${season}, Episódio ${episode}...`);
+
+        saveWatchHistory({
+          imdbId: currentImdbId,
+          title: document.getElementById('modal-full-title')?.innerText || "Série",
+          year: document.getElementById('modal-year')?.innerText || "",
+          tipo: 'tvshow',
+          season,
+          episode,
+          timestamp: Date.now()
+        });
+      }
+
+      // =========================================================================
+      // FUNÇÕES DE CONTROLE DE UI DO MODAL DO PLAYER
+      // =========================================================================
+
+      function openPlayerModalUi(movie, season = 1, episode = 1) {
+        const modal = document.getElementById('player-modal');
+        modal.classList.remove('hidden');
+        document.body.classList.add('overflow-hidden');
+
+        const title = movie.title || movie.name || 'Reprodução';
+        const year = movie.year || '';
+        const isTv = movie.media_type === 'tv' || movie.media_type === 'tvshow';
+
+        document.getElementById('modal-title').innerText = title;
+        document.getElementById('modal-full-title').innerText = title;
+        document.getElementById('modal-year').innerText = year;
+        document.getElementById('modal-synopsis').innerText = movie.overview || 'Sinopse não disponível.';
+
+        const typeTag = document.getElementById('modal-type-tag');
+        if (typeTag) {
+          typeTag.innerText = isTv ? 'SÉRIE' : 'FILME';
+        }
+
+        const imdbTag = document.getElementById('modal-imdb-tag');
+        if (imdbTag) {
+          imdbTag.innerText = 'IMDb: Consultando...';
+        }
+
+        // Reseta overlay de progresso
+        const loaderOverlay = document.getElementById('loader-overlay');
+        if (loaderOverlay) {
+          loaderOverlay.classList.remove('hidden', 'opacity-0', 'pointer-events-none');
+        }
+
+        // Limpa o ponto de montagem do iframe
+        const mountPoint = document.getElementById('iframe-mount-point');
+        if (mountPoint) {
+          mountPoint.innerHTML = '';
+        }
+      }
+
+      function updateModalProgress(statusText, detailText, percent = 50, isError = false) {
+        const statusEl = document.getElementById('loader-status');
+        const detailEl = document.getElementById('loader-detail');
+        const barEl = document.getElementById('loader-bar');
+        const spinner = document.getElementById('loader-spinner');
+
+        if (statusEl) statusEl.innerText = statusText;
+        if (detailEl) detailEl.innerText = detailText;
+        if (barEl) {
+          barEl.style.width = `${percent}%`;
+          barEl.className = isError 
+            ? 'bg-red-600 h-full transition-all duration-300' 
+            : 'bg-[#E50914] h-full transition-all duration-300';
+        }
+        if (isError && spinner) {
+          spinner.innerHTML = '<div class="w-12 h-12 rounded-full bg-red-950/80 border border-red-500 flex items-center justify-center text-red-400 font-bold text-xl">✕</div>';
+        }
+      }
+
+      function closePlayerModal() {
+        const modal = document.getElementById('player-modal');
+        modal.classList.add('hidden');
+        document.body.classList.remove('overflow-hidden');
+
+        // Limpa imediatamente o iframe para cessar reprodução e som de fundo
+        const mountPoint = document.getElementById('iframe-mount-point');
+        if (mountPoint) {
+          mountPoint.innerHTML = '';
+        }
+        currentEmbedUrl = '';
+      }
+
+      function toggleFullscreenPlayer() {
+        const wrapper = document.getElementById('player-frame-wrapper');
+        if (!wrapper) return;
+
+        if (!document.fullscreenElement) {
+          if (wrapper.requestFullscreen) {
+            wrapper.requestFullscreen();
+          } else if (wrapper.webkitRequestFullscreen) {
+            wrapper.webkitRequestFullscreen();
+          } else if (wrapper.mozRequestFullScreen) {
+            wrapper.mozRequestFullScreen();
+          }
+        } else {
+          if (document.exitFullscreen) {
+            document.exitFullscreen();
+          }
+        }
+      }
+
+      function copyEmbedUrl() {
+        if (!currentEmbedUrl) {
+          showToast("Nenhum link de transmissão ativo.", true);
+          return;
+        }
+        navigator.clipboard.writeText(currentEmbedUrl).then(() => {
+          const btnText = document.getElementById('copy-stream-btn-text');
+          if (btnText) {
+            const original = btnText.innerText;
+            btnText.innerText = "Copiado!";
+            setTimeout(() => btnText.innerText = original, 2000);
+          }
+          showToast("URL do embed SuperCDN copiada!");
+        }).catch(() => {
+          showToast("Não foi possível copiar automaticamente.", true);
+        });
+      }
+
+      /**
+       * SCRIPT DE FALLBACK AUTOMÁTICO (Caso o Iframe continue recusado)
+       * Abre a URL direta limpando rastreadores com window.open(url, "_blank", "noopener,noreferrer")
+       */
+      function openEmbedInNewTab() {
+        if (!currentImdbId) {
+          showToast("Nenhum filme ou série carregado no momento.", true);
+          return;
+        }
+
+        const fallbackUrl = currentMediaType === 'tvshow'
+          ? (currentSeason && currentEpisode 
+              ? `https://plenoflu.com/tvshow/${currentImdbId}/${currentSeason}/${currentEpisode}`
+              : `https://plenoflu.com/tvshow/${currentImdbId}`)
+          : `https://plenoflu.com/movie/${currentImdbId}`;
+
+        const urlParaAbrir = currentEmbedUrl || fallbackUrl;
+        
+        // Abertura segura sem rastreamento de origem
+        window.open(urlParaAbrir, "_blank", "noopener,noreferrer");
+        showToast("Abrindo transmissão direta no SuperCDN...");
+      }
+
+      // =========================================================================
+      // GERENCIAMENTO DO HISTÓRICO DE TRANSMISSÕES (WATCH HISTORY)
+      // =========================================================================
+
+      function getWatchHistory() {
+        try {
+          const raw = localStorage.getItem(STORAGE_WATCH_HISTORY);
+          return raw ? JSON.parse(raw) : [];
+        } catch (e) {
+          return [];
+        }
+      }
+
+      function saveWatchHistory(item) {
+        try {
+          let history = getWatchHistory();
+          // Remove duplicata para reposicionar no topo
+          history = history.filter(h => !(h.imdbId === item.imdbId && h.season === item.season && h.episode === item.episode));
+          history.unshift(item);
+          if (history.length > 30) history.pop();
+          localStorage.setItem(STORAGE_WATCH_HISTORY, JSON.stringify(history));
+          updateHistoryDrawerUi();
+        } catch (e) {
+          console.error("Erro ao salvar histórico:", e);
+        }
+      }
+
+      function clearWatchHistory() {
+        localStorage.removeItem(STORAGE_WATCH_HISTORY);
+        updateHistoryDrawerUi();
+        showToast("Histórico de reproduções limpo!");
+      }
+
+      function updateHistoryDrawerUi() {
+        const history = getWatchHistory();
+        const countLabel = document.getElementById('header-history-label');
+        if (countLabel) {
+          countLabel.innerText = `${history.length} assistido${history.length === 1 ? '' : 's'}`;
+        }
+
+        const listContainer = document.getElementById('drawer-items-list');
+        if (!listContainer) return;
+
+        if (history.length === 0) {
+          listContainer.innerHTML = `
+            <div class="py-12 text-center text-neutral-500 space-y-2">
+              <svg class="w-10 h-10 mx-auto text-neutral-600 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+              </svg>
+              <p class="text-xs">Nenhum título reproduzido ainda.</p>
+              <p class="text-[10px] text-neutral-600">Escolha um filme ou série para assistir via SuperCDN.</p>
+            </div>
+          `;
+          return;
+        }
+
+        listContainer.innerHTML = history.map(item => {
+          const isTv = item.tipo === 'tvshow';
+          const tagInfo = isTv && item.season && item.episode 
+            ? `T${item.season}:E${item.episode}` 
+            : (isTv ? 'SÉRIE' : 'FILME');
+          const safePayload = JSON.stringify({
+            title: item.title,
+            year: item.year,
+            media_type: item.tipo,
+            poster: item.poster
+          }).replace(/'/g, "&#39;");
+
+          return `
+            <div class="p-2.5 rounded-xl bg-[#0a0a0a] border border-[#262626] hover:border-[#E50914] transition-all space-y-2">
+              <div class="flex items-start justify-between gap-2">
+                <div class="flex items-center gap-2 overflow-hidden">
+                  <span class="w-1.5 h-1.5 rounded-full ${isTv ? 'bg-indigo-400' : 'bg-emerald-400'} flex-shrink-0"></span>
+                  <span class="font-bold text-white text-xs truncate">${item.title}</span>
+                </div>
+                <span class="px-1.5 py-0.5 rounded bg-neutral-800 text-neutral-300 text-[10px] font-mono flex-shrink-0">${tagInfo}</span>
+              </div>
+              
+              <div class="flex items-center justify-between text-[11px] text-neutral-400 font-mono">
+                <span class="text-amber-400">${item.imdbId}</span>
+                <span>${item.year || ''}</span>
+              </div>
+
+              <div class="flex items-center gap-2 pt-1 border-t border-[#1a1a1a]">
+                <button onclick='initiateOnDemandPlayback(${safePayload}, ${item.season || 1}, ${item.episode || 1})' 
+                        class="flex-1 py-1 rounded bg-[#E50914] hover:bg-[#b80710] text-white text-[11px] font-bold transition-colors flex items-center justify-center gap-1 cursor-pointer">
+                  <svg class="w-3 h-3 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                  <span>Assistir Novamente</span>
+                </button>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      function toggleHistoryDrawer() {
+        const drawer = document.getElementById('history-drawer');
+        if (drawer) {
+          drawer.classList.toggle('translate-x-full');
+        }
+      }
+
+      // =========================================================================
+      // INICIALIZAÇÃO AO CARREGAR O SITE
+      // =========================================================================
+      window.addEventListener('DOMContentLoaded', () => {
+        // 1. Carrega catálogo visual dinâmico do TMDB
+        loadDynamicCatalog();
+
+        // 2. Atualiza drawer de histórico
+        updateHistoryDrawerUi();
+      });
+
+      // Fechar modal com tecla ESC
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') closePlayerModal();
+      });
+    </script>
+
+  </body>
+</html>
