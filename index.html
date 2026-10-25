@@ -372,7 +372,7 @@
               <h2 id="modal-full-title" class="text-base sm:text-xl font-bold text-white mt-1">--</h2>
             </div>
 
-            <!-- Botões de Ação do Player -->
+            <!-- Botões de Ação do Player (Inline) -->
             <div class="flex items-center gap-2 flex-wrap">
               <button onclick="toggleFullscreenPlayer()" class="px-3 py-1.5 rounded-lg bg-[#000000] hover:bg-[#222222] border border-[#333333] text-xs font-mono text-neutral-200 hover:text-white transition-all flex items-center gap-1.5 cursor-pointer" title="Tela Cheia">
                 <svg class="w-3.5 h-3.5 text-neutral-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-5h-4m4 0v4m0-4l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/></svg>
@@ -383,27 +383,7 @@
                 <svg class="w-3.5 h-3.5 text-[#E50914]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
                 <span id="copy-stream-btn-text">Copiar Embed</span>
               </button>
-
-              <button onclick="openEmbedInNewTab()" class="px-3.5 py-1.5 rounded-lg bg-sky-950/80 hover:bg-sky-900 border border-sky-600/70 text-xs font-bold text-sky-200 hover:text-white transition-all flex items-center gap-1.5 cursor-pointer shadow-md shadow-sky-950/40" title="Assistir em Nova Aba">
-                <svg class="w-3.5 h-3.5 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
-                <span>Assistir em Nova Aba</span>
-              </button>
             </div>
-          </div>
-
-          <!-- Banner de Fallback Automático: Conexão Recusada ou Bloqueio de Iframe -->
-          <div class="p-3 rounded-xl bg-neutral-900/90 border border-neutral-700/80 text-xs text-neutral-300 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div class="flex items-center gap-2.5">
-              <span class="flex-shrink-0 w-7 h-7 rounded-lg bg-amber-500/20 border border-amber-500/40 text-amber-400 flex items-center justify-center font-bold text-sm">⚠️</span>
-              <div>
-                <p class="font-bold text-white text-xs">A conexão foi recusada pelo player ou tela preta?</p>
-                <p class="text-[11px] text-neutral-400">Clique em Assistir Direto para contornar qualquer política X-Frame-Options do provedor.</p>
-              </div>
-            </div>
-            <button onclick="openEmbedInNewTab()" class="px-3.5 py-1.5 rounded-lg bg-[#E50914] hover:bg-[#b80710] text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap shadow-md">
-              <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M14 3h7v7h-2V6.41l-9.29 9.3-1.42-1.42 9.3-9.29H14V3zM5 5h6V3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-6h-2v6H5V5z"/></svg>
-              <span>Abrir Direto</span>
-            </button>
           </div>
 
           <p id="modal-synopsis" class="text-xs sm:text-sm text-neutral-300 leading-relaxed max-h-20 overflow-y-auto">
@@ -825,10 +805,27 @@
     scrolling="no" 
     allowfullscreen="true" 
     webkitallowfullscreen="true" 
-    mozallowfullscreen="true"
-    referrerpolicy="strict-origin-when-cross-origin"
-    allow="autoplay; encrypted-media; picture-in-picture">
+    mozallowfullscreen="true" 
+    referrerpolicy="no-referrer"
+    sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"
+    allow="autoplay; encrypted-media; picture-in-picture"
+    class="w-full h-full border-0">
 </iframe>`;
+      }
+
+      /**
+       * Renderizador Nativo Inline para fluxos diretos (HLS / MP4)
+       */
+      function renderizarPlayerNativo(videoUrl, poster = '') {
+        return `<video 
+    src="${videoUrl}" 
+    poster="${poster}" 
+    controls 
+    autoplay 
+    playsinline 
+    class="w-full h-full object-contain bg-black rounded-lg">
+    Seu navegador não suporta reprodução de vídeo nativa.
+</video>`;
       }
 
       /**
@@ -1100,26 +1097,39 @@
       }
 
       /**
-       * SCRIPT DE FALLBACK AUTOMÁTICO (Caso o Iframe continue recusado)
-       * Abre a URL direta limpando rastreadores com window.open(url, "_blank", "noopener,noreferrer")
+       * 6. RECARREGAMENTO SEGURO INLINE VIA PROXY DE HEADERS (Bypass de CSP e X-Frame-Options)
+       * Mantém o usuário estritamente dentro da mesma view do aplicativo sem novas abas
        */
-      function openEmbedInNewTab() {
+      function recarregarPlayerInlineViaProxy() {
         if (!currentImdbId) {
           showToast("Nenhum filme ou série carregado no momento.", true);
           return;
         }
 
-        const fallbackUrl = currentMediaType === 'tvshow'
-          ? (currentSeason && currentEpisode 
-              ? `https://plenoflu.com/tvshow/${currentImdbId}/${currentSeason}/${currentEpisode}`
-              : `https://plenoflu.com/tvshow/${currentImdbId}`)
-          : `https://plenoflu.com/movie/${currentImdbId}`;
+        const mountPoint = document.getElementById('iframe-mount-point');
+        if (!mountPoint) return;
 
-        const urlParaAbrir = currentEmbedUrl || fallbackUrl;
-        
-        // Abertura segura sem rastreamento de origem
-        window.open(urlParaAbrir, "_blank", "noopener,noreferrer");
-        showToast("Abrindo transmissão direta no SuperCDN...");
+        const proxyUrl = currentMediaType === 'tvshow'
+          ? (currentSeason && currentEpisode 
+              ? `/api-plenoflu/tvshow/${currentImdbId}/${currentSeason}/${currentEpisode}`
+              : `/api-plenoflu/tvshow/${currentImdbId}`)
+          : `/api-plenoflu/movie/${currentImdbId}`;
+
+        mountPoint.innerHTML = `<iframe 
+    src="${proxyUrl}" 
+    width="100%" 
+    height="100%" 
+    frameborder="0" 
+    scrolling="no" 
+    allowfullscreen="true" 
+    webkitallowfullscreen="true" 
+    mozallowfullscreen="true" 
+    referrerpolicy="no-referrer"
+    sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"
+    allow="autoplay; encrypted-media; picture-in-picture"
+    class="w-full h-full border-0">
+</iframe>`;
+        showToast("Player reconectado inline com proxy de cabeçalhos.");
       }
 
       // =========================================================================

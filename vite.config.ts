@@ -46,6 +46,21 @@ export default defineConfig(() => {
           changeOrigin: true,
           rewrite: (path) => path.replace(/^\/api-brazuca/, ''),
         },
+        '/api-plenoflu': {
+          target: 'https://plenoflu.com',
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/api-plenoflu/, ''),
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+          },
+          configure: (proxy) => {
+            proxy.on('proxyRes', (proxyRes) => {
+              delete proxyRes.headers['x-frame-options'];
+              delete proxyRes.headers['content-security-policy'];
+              delete proxyRes.headers['content-security-policy-report-only'];
+            });
+          },
+        },
       },
     },
   };

@@ -249,34 +249,28 @@ export function renderizarPlayerSuperCDN(
     scrolling="no" 
     allowfullscreen="true" 
     webkitallowfullscreen="true" 
-    mozallowfullscreen="true"
-    referrerpolicy="strict-origin-when-cross-origin"
-    allow="autoplay; encrypted-media; picture-in-picture">
+    mozallowfullscreen="true" 
+    referrerpolicy="no-referrer"
+    sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"
+    allow="autoplay; encrypted-media; picture-in-picture"
+    class="w-full h-full border-0">
 </iframe>`;
 }
 
 /**
- * Script de Fallback: Abre a URL direta em nova aba contornando bloqueios de iframe / CORS / X-Frame-Options
- * 
- * @param imdbId Código do IMDb (ex: 'tt0241527')
- * @param tipo 'movie' ou 'tvshow'
- * @param season Número da temporada (opcional)
- * @param episode Número do episódio (opcional)
+ * Renderizador de Player Nativo Inline (HTML5 / HLS)
+ * Usado para reprodução direta interna sem embutir páginas externas completas
  */
-export function abrirDiretoNovaAba(
-  imdbId: string,
-  tipo: 'movie' | 'tvshow' = 'movie',
-  season: string | number = '',
-  episode: string | number = ''
-): Window | null {
-  const url = tipo === 'movie' 
-    ? `https://plenoflu.com/movie/${imdbId}`
-    : montarUrlSuperCDN(imdbId, tipo, season, episode);
-
-  if (typeof window !== 'undefined') {
-    return window.open(url, "_blank", "noopener,noreferrer");
-  }
-  return null;
+export function renderizarPlayerNativo(videoUrl: string, poster: string = ''): string {
+  return `<video 
+    src="${videoUrl}" 
+    poster="${poster}" 
+    controls 
+    autoplay 
+    playsinline 
+    class="w-full h-full object-contain bg-black rounded-lg">
+    Seu navegador não suporta reprodução de vídeo nativa.
+  </video>`;
 }
 
 /**
@@ -322,6 +316,6 @@ export default {
   obterImdbId,
   montarUrlSuperCDN,
   renderizarPlayerSuperCDN,
-  abrirDiretoNovaAba,
+  renderizarPlayerNativo,
   buscarEReproduzirSuperCDN
 };
