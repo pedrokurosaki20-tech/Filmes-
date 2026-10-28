@@ -52,8 +52,15 @@ export default defineConfig(() => {
           rewrite: (path) => path.replace(/^\/api-plenoflu/, ''),
           headers: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+            'Referer': 'https://plenoflu.com/',
+            'Origin': 'https://plenoflu.com',
           },
           configure: (proxy) => {
+            proxy.on('proxyReq', (proxyReq) => {
+              proxyReq.setHeader('Referer', 'https://plenoflu.com/');
+              proxyReq.setHeader('Origin', 'https://plenoflu.com');
+              proxyReq.setHeader('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36');
+            });
             proxy.on('proxyRes', (proxyRes) => {
               delete proxyRes.headers['x-frame-options'];
               delete proxyRes.headers['content-security-policy'];

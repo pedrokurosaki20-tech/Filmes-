@@ -1,0 +1,23 @@
+{
+  "rewrites": [
+    {
+      "source": "/api-plenoflu/:path*",
+      "destination": "https://plenoflu.com/:path*"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/api-plenoflu/:path*",
+      "headers": [
+        {
+          "key": "Referer",
+          "value": "https://plenoflu.com/"
+        },
+        {
+          "key": "Origin",
+          "value": "https://plenoflu.com"
+        }
+      ]
+    }
+  ]
+}

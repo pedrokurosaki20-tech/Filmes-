@@ -324,9 +324,9 @@
             </div>
           </div>
 
-          <!-- Ponto de Injeção Oficial do Iframe SuperCDN -->
-          <div id="iframe-mount-point" class="w-full h-full flex items-center justify-center">
-            <!-- Injetado dinamicamente: <iframe src="https://plenoflu.com/movie/{imdb_id}" ...> -->
+          <!-- Ponto de Injeção Oficial do Iframe SuperCDN (Documentação Oficial Plenoflu) -->
+          <div id="SuperCDNContainerVideo" class="w-full h-full flex items-center justify-center">
+            <!-- Injetado pelo Plugin Javascript Oficial da Plenoflu -->
           </div>
         </div>
 
@@ -754,71 +754,99 @@
        * @returns {string} URL de embed completa
        */
       /**
-       * 2. REGRAS CRUCIAIS DE TRADUÇÃO DE URL (Plenoflu.com para Embed)
+       * 2. IMPLEMENTAÇÃO OFICIAL DO SUPERCDN (PLENOFLU.COM v1.0)
+       * Conforme documentação em plenoflu.com/doc/
        * 
-       * Regra 1 (Filme):
-       * Entrada: https://plenoflu.com/movie/{id} ou {id}
-       * Saída obrigatória no iFrame: https://plenoflu.com/{id}
+       * URLs da Documentação:
+       * - Filmes:     https://plenoflu.com/movie/{imdb}
+       * - Séries:     https://plenoflu.com/tvshow/{imdb}
+       * - Temporadas: https://plenoflu.com/tvshow/{imdb}/{season}
+       * - Episódios:  https://plenoflu.com/tvshow/{imdb}/{season}/{episode}
        * 
-       * Regra 2 (Série / Temporada / Episódio):
-       * Entrada: https://plenoflu.com/tvshow/{id}
-       * Saída obrigatória no iFrame: https://plenoflu.com/tv/{id}/{temporada}/{episodio} (padrão /1/1 se não fornecido)
+       * Plugin Javascript Oficial:
+       * <div id="SuperCDNContainerVideo"></div>
+       * function SuperCDNJSPlugin(type, imdb, season, episode){
+       *   if (type == "movie") { season="";episode="";}else{
+       *     if (season !== "") { season = "/"+season; }
+       *     if (episode !== "") { episode = "/"+episode; }
+       *   }
+       *   var frame = document.getElementById('SuperCDNContainerVideo');
+       *   frame.innerHTML = '<iframe src="https://plenoflu.com/'+type+'/'+imdb+season+episode+'" width="100%" height="100%" scrolling="no" frameborder="0" allowfullscreen="" webkitallowfullscreen="" mozallowfullscreen=""></iframe>';
+       * }
        */
-      function traduzirUrlPlenoflu(entrada, tipo = 'movie', season = 1, episode = 1) {
-        if (!entrada) {
-          throw new Error("[Plenoflu] URL ou ID é obrigatório para montagem do embed.");
+      function SuperCDNJSPlugin(type, imdb, season = '', episode = '') {
+        const cleanType = (type === 'tv' || type === 'tvshow') ? 'tvshow' : 'movie';
+        let s = (season !== undefined && season !== null && season !== '') ? String(season).trim() : '';
+        let e = (episode !== undefined && episode !== null && episode !== '') ? String(episode).trim() : '';
+
+        if (cleanType === 'movie') {
+          s = '';
+          e = '';
+        } else {
+          if (s !== '') { s = '/' + s; }
+          if (e !== '') { e = '/' + e; }
         }
 
-        const str = String(entrada).trim();
-        const s = season && String(season).trim() !== '' ? String(season).trim() : '1';
-        const e = episode && String(episode).trim() !== '' ? String(episode).trim() : '1';
+        const canonicalUrl = 'https://plenoflu.com/' + cleanType + '/' + imdb + s + e;
+        const proxyUrl = '/api-plenoflu/' + cleanType + '/' + imdb + s + e;
 
-        // Caso 1: Entrada é URL de Série (contém /tvshow/ ou /tv/)
-        if (str.includes('/tvshow/') || str.includes('/tv/')) {
-          const route = str.includes('/tvshow/') ? '/tvshow/' : '/tv/';
-          const parts = str.split(route)[1]?.split('/') || [];
-          const id = parts[0]?.split('?')[0] || '';
-          const finalS = parts[1] || s;
-          const finalE = parts[2] || e;
-          return `https://plenoflu.com/tv/${id}/${finalS}/${finalE}`;
+        // Verifica se o ambiente possui suporte ao proxy interno para contornar X-Frame-Options
+        const isProxySupported = window.location.hostname.includes('localhost') || 
+                                window.location.hostname.includes('127.0.0.1') || 
+                                window.location.hostname.includes('run.app') || 
+                                window.location.hostname.includes('vercel.app');
+
+        const streamUrl = isProxySupported ? proxyUrl : canonicalUrl;
+
+        const frame = document.getElementById('SuperCDNContainerVideo') || document.getElementById('iframe-mount-point');
+        if (frame) {
+          frame.innerHTML = '<iframe src="' + streamUrl + '" width="100%" height="100%" scrolling="no" frameborder="0" allowfullscreen="" webkitallowfullscreen="" mozallowfullscreen="" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" class="w-full h-full border-0"></iframe>';
         }
 
-        // Caso 2: Entrada é URL de Filme (contém /movie/)
-        if (str.includes('/movie/')) {
-          const parts = str.split('/movie/')[1]?.split('/') || [];
-          const id = parts[0]?.split('?')[0] || '';
-          return `https://plenoflu.com/${id}`;
-        }
-
-        // Caso 3: Entrada é ID direto (ex: "tt0241527")
-        const cleanId = str.replace(/^\/+/, '').split('?')[0];
-
-        if (tipo === 'tvshow' || tipo === 'tv') {
-          return `https://plenoflu.com/tv/${cleanId}/${s}/${e}`;
-        }
-
-        return `https://plenoflu.com/${cleanId}`;
+        return streamUrl;
       }
 
-      function montarUrlSuperCDN(imdbId, tipo = 'movie', season = 1, episode = 1) {
-        return traduzirUrlPlenoflu(imdbId, tipo, season, episode);
+      function montarUrlSuperCDN(imdbId, tipo = 'movie', season = '', episode = '') {
+        const cleanType = (tipo === 'tv' || tipo === 'tvshow') ? 'tvshow' : 'movie';
+        let s = (season !== undefined && season !== null && season !== '') ? String(season).trim() : '';
+        let e = (episode !== undefined && episode !== null && episode !== '') ? String(episode).trim() : '';
+
+        if (cleanType === 'movie') {
+          s = '';
+          e = '';
+        } else {
+          if (s !== '') { s = '/' + s; }
+          if (e !== '') { e = '/' + e; }
+        }
+
+        return 'https://plenoflu.com/' + cleanType + '/' + imdbId + s + e;
       }
 
-      /**
-       * 3. ESTRUTURA DO COMPONENTE HTML
-       * 
-       * Tag iFrame com os atributos exatos de liberação de mídia inline:
-       * <iframe src="URL_CONVERTIDA_AQUI" sandbox="allow-scripts allow-same-origin allow-forms allow-presentation" referrerpolicy="no-referrer" width="100%" height="100%" frameborder="0" allowfullscreen></iframe>
-       */
-      function renderizarPlayerSuperCDN(imdbId, tipo = 'movie', season = 1, episode = 1) {
-        const urlConvertida = traduzirUrlPlenoflu(imdbId, tipo, season, episode);
+      function renderizarPlayerSuperCDN(imdbId, tipo = 'movie', season = '', episode = '') {
+        const cleanType = (tipo === 'tv' || tipo === 'tvshow') ? 'tvshow' : 'movie';
+        let s = (season !== undefined && season !== null && season !== '') ? String(season).trim() : '';
+        let e = (episode !== undefined && episode !== null && episode !== '') ? String(episode).trim() : '';
 
-        return `<iframe src="${urlConvertida}" sandbox="allow-scripts allow-same-origin allow-forms allow-presentation" referrerpolicy="no-referrer" width="100%" height="100%" frameborder="0" allowfullscreen></iframe>`;
+        if (cleanType === 'movie') {
+          s = '';
+          e = '';
+        } else {
+          if (s !== '') { s = '/' + s; }
+          if (e !== '') { e = '/' + e; }
+        }
+
+        const isProxySupported = window.location.hostname.includes('localhost') || 
+                                window.location.hostname.includes('127.0.0.1') || 
+                                window.location.hostname.includes('run.app') || 
+                                window.location.hostname.includes('vercel.app');
+
+        const streamUrl = isProxySupported
+          ? '/api-plenoflu/' + cleanType + '/' + imdbId + s + e
+          : 'https://plenoflu.com/' + cleanType + '/' + imdbId + s + e;
+
+        return '<iframe src="' + streamUrl + '" width="100%" height="100%" scrolling="no" frameborder="0" allowfullscreen="" webkitallowfullscreen="" mozallowfullscreen="" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" class="w-full h-full border-0"></iframe>';
       }
 
-      /**
-       * Renderizador Nativo Inline para fluxos diretos (HLS / MP4)
-       */
       function renderizarPlayerNativo(videoUrl, poster = '') {
         return `<video 
     src="${videoUrl}" 
@@ -905,12 +933,8 @@
             endpointLabel.title = embedUrl;
           }
 
-          // Injeção do <iframe> oficial
-          const iframeHtml = renderizarPlayerSuperCDN(imdbId, mediaType, currentSeason, currentEpisode);
-          const mountPoint = document.getElementById('iframe-mount-point');
-          if (mountPoint) {
-            mountPoint.innerHTML = iframeHtml;
-          }
+          // Injeção do <iframe> oficial da Plenoflu (SuperCDN)
+          SuperCDNJSPlugin(mediaType, imdbId, currentSeason, currentEpisode);
 
           // Salva no histórico de reprodução
           saveWatchHistory({
@@ -971,10 +995,7 @@
           endpointLabel.title = embedUrl;
         }
 
-        const mountPoint = document.getElementById('iframe-mount-point');
-        if (mountPoint) {
-          mountPoint.innerHTML = renderizarPlayerSuperCDN(currentImdbId, 'tvshow', season, episode);
-        }
+        SuperCDNJSPlugin('tvshow', currentImdbId, season, episode);
 
         showToast(`Carregando Temporada ${season}, Episódio ${episode}...`);
 
@@ -1024,7 +1045,7 @@
         }
 
         // Limpa o ponto de montagem do iframe
-        const mountPoint = document.getElementById('iframe-mount-point');
+        const mountPoint = document.getElementById('SuperCDNContainerVideo') || document.getElementById('iframe-mount-point');
         if (mountPoint) {
           mountPoint.innerHTML = '';
         }
@@ -1055,7 +1076,7 @@
         document.body.classList.remove('overflow-hidden');
 
         // Limpa imediatamente o iframe para cessar reprodução e som de fundo
-        const mountPoint = document.getElementById('iframe-mount-point');
+        const mountPoint = document.getElementById('SuperCDNContainerVideo') || document.getElementById('iframe-mount-point');
         if (mountPoint) {
           mountPoint.innerHTML = '';
         }
