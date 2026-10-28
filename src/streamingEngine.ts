@@ -182,79 +182,82 @@ export async function obterImdbId(
  * 
  * @param imdbId Código do IMDb (ex: 'tt10872600')
  * @param tipo 'movie' para filme ou 'tvshow' para séries
- * @param season Número da temporada (opcional)
- * @param episode Número do episódio (opcional)
- * @returns URL final pronta para embed
+/**
+ * 2. TRADUÇÃO DE URL DA PLENOFLU PARA EMBED
+ * 
+ * Regra 1 (Filme):
+ * Entrada: https://plenoflu.com/movie/{id} ou {id}
+ * Saída: https://plenoflu.com/{id}
+ * 
+ * Regra 2 (Série / Temporada / Episódio):
+ * Entrada: https://plenoflu.com/tvshow/{id}
+ * Saída: https://plenoflu.com/tv/{id}/{temporada}/{episodio} (padrão /1/1 se não fornecido)
  */
-export function montarUrlSuperCDN(
-  imdbId: string,
-  tipo: 'movie' | 'tvshow' = 'movie',
-  season: string | number = '',
-  episode: string | number = ''
+export function traduzirUrlPlenoflu(
+  entrada: string,
+  tipo: 'movie' | 'tvshow' | 'tv' = 'movie',
+  season: string | number = 1,
+  episode: string | number = 1
 ): string {
-  if (!imdbId) {
-    throw new Error("[SuperCDN] IMDb ID obrigatório para montar a URL de embed.");
+  if (!entrada) {
+    throw new Error("[Plenoflu] URL ou ID obrigatório para montagem do embed.");
   }
 
-  const cleanImdb = imdbId.trim().toLowerCase();
-  const cleanSeason = season ? String(season).trim() : '';
-  const cleanEpisode = episode ? String(episode).trim() : '';
+  const str = entrada.trim();
+  const s = season && String(season).trim() !== '' ? String(season).trim() : '1';
+  const e = episode && String(episode).trim() !== '' ? String(episode).trim() : '1';
 
-  // 1. Caso Filme
-  if (tipo === 'movie') {
-    return `https://plenoflu.com/movie/${cleanImdb}`;
+  // Caso 1: Entrada é URL de Série (contém /tvshow/ ou /tv/)
+  if (str.includes('/tvshow/') || str.includes('/tv/')) {
+    const route = str.includes('/tvshow/') ? '/tvshow/' : '/tv/';
+    const parts = str.split(route)[1]?.split('/') || [];
+    const id = parts[0]?.split('?')[0] || '';
+    const finalS = parts[1] || s;
+    const finalE = parts[2] || e;
+    return `https://plenoflu.com/tv/${id}/${finalS}/${finalE}`;
   }
 
-  // 2. Caso Série
-  if (cleanSeason && cleanEpisode) {
-    // URL com Temporada e Episódio específicos
-    return `https://plenoflu.com/tvshow/${cleanImdb}/${cleanSeason}/${cleanEpisode}`;
+  // Caso 2: Entrada é URL de Filme (contém /movie/)
+  if (str.includes('/movie/')) {
+    const parts = str.split('/movie/')[1]?.split('/') || [];
+    const id = parts[0]?.split('?')[0] || '';
+    return `https://plenoflu.com/${id}`;
   }
 
-  if (cleanSeason) {
-    // URL com Temporada específica
-    return `https://plenoflu.com/tvshow/${cleanImdb}/${cleanSeason}`;
+  // Caso 3: Entrada é ID direto (ex: "tt0241527")
+  const cleanId = str.replace(/^\/+/, '').split('?')[0];
+
+  if (tipo === 'tvshow' || tipo === 'tv') {
+    return `https://plenoflu.com/tv/${cleanId}/${s}/${e}`;
   }
 
-  // URL geral da série
-  return `https://plenoflu.com/tvshow/${cleanImdb}`;
+  return `https://plenoflu.com/${cleanId}`;
+}
+
+export function montarUrlSuperCDN(
+  imdbIdOuUrl: string,
+  tipo: 'movie' | 'tvshow' | 'tv' = 'movie',
+  season: string | number = 1,
+  episode: string | number = 1
+): string {
+  return traduzirUrlPlenoflu(imdbIdOuUrl, tipo, season, episode);
 }
 
 /**
- * 3. GERADORA DO PLAYER IFRAME (Regra Oficial de Segurança e Fullscreen)
+ * 3. ESTRUTURA DO COMPONENTE HTML
  * 
- * Constrói e retorna a tag HTML do iframe do player configurada com os atributos
- * oficiais extraídos do script nativo do SuperCDN (Pobre Play):
- * width="100%" height="100%" scrolling="no" frameborder="0" allowfullscreen="" webkitallowfullscreen="" mozallowfullscreen=""
- * 
- * @param imdbId Código do IMDb (ex: 'tt10872600')
- * @param tipo 'movie' para filme ou 'tvshow' para série
- * @param season Número da temporada (opcional)
- * @param episode Número do episódio (opcional)
- * @returns Tag HTML completa do <iframe>
+ * Tag iFrame com os atributos exatos de liberação de mídia inline:
+ * <iframe src="URL_CONVERTIDA_AQUI" sandbox="allow-scripts allow-same-origin allow-forms allow-presentation" referrerpolicy="no-referrer" width="100%" height="100%" frameborder="0" allowfullscreen></iframe>
  */
 export function renderizarPlayerSuperCDN(
-  imdbId: string,
-  tipo: 'movie' | 'tvshow' = 'movie',
-  season: string | number = '',
-  episode: string | number = ''
+  imdbIdOuUrl: string,
+  tipo: 'movie' | 'tvshow' | 'tv' = 'movie',
+  season: string | number = 1,
+  episode: string | number = 1
 ): string {
-  const urlTransmissao = montarUrlSuperCDN(imdbId, tipo, season, episode);
+  const urlConvertida = traduzirUrlPlenoflu(imdbIdOuUrl, tipo, season, episode);
 
-  return `<iframe 
-    src="${urlTransmissao}" 
-    width="100%" 
-    height="100%" 
-    frameborder="0" 
-    scrolling="no" 
-    allowfullscreen="true" 
-    webkitallowfullscreen="true" 
-    mozallowfullscreen="true" 
-    referrerpolicy="no-referrer"
-    sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"
-    allow="autoplay; encrypted-media; picture-in-picture"
-    class="w-full h-full border-0">
-</iframe>`;
+  return `<iframe src="${urlConvertida}" sandbox="allow-scripts allow-same-origin allow-forms allow-presentation" referrerpolicy="no-referrer" width="100%" height="100%" frameborder="0" allowfullscreen></iframe>`;
 }
 
 /**
@@ -314,6 +317,7 @@ export async function buscarEReproduzirSuperCDN(
 export default {
   TMDB_API_KEY,
   obterImdbId,
+  traduzirUrlPlenoflu,
   montarUrlSuperCDN,
   renderizarPlayerSuperCDN,
   renderizarPlayerNativo,
