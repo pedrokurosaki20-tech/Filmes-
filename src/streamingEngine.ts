@@ -291,19 +291,27 @@ export function renderizarPlayerSuperCDN(
 }
 
 /**
- * Renderizador de Player Nativo Inline (HTML5 / HLS)
- * Usado para reprodução direta interna sem embutir páginas externas completas
+ * Retorna URLs dos canais disponíveis (Canal 1: Plenoflu Oficial, Canal 2: SuperFlix, Canal 3: StreamBetter)
  */
-export function renderizarPlayerNativo(videoUrl: string, poster: string = ''): string {
-  return `<video 
-    src="${videoUrl}" 
-    poster="${poster}" 
-    controls 
-    autoplay 
-    playsinline 
-    class="w-full h-full object-contain bg-black rounded-lg">
-    Seu navegador não suporta reprodução de vídeo nativa.
-  </video>`;
+export function obterUrlCanalPlayer(
+  channelIndex: number,
+  imdbId: string,
+  tipo: 'movie' | 'tvshow' | 'tv' = 'movie',
+  season: string | number = 1,
+  episode: string | number = 1
+): string {
+  const isTv = tipo === 'tvshow' || tipo === 'tv';
+  if (channelIndex === 1) {
+    return isTv
+      ? `https://superflixapi.fun/serie/${imdbId}/${season || 1}/${episode || 1}`
+      : `https://superflixapi.fun/filme/${imdbId}#noEpList`;
+  }
+  if (channelIndex === 2) {
+    return isTv
+      ? `https://superflixapi.fun/serie/${imdbId}/${season || 1}/${episode || 1}`
+      : `https://superflixapi.fun/filme/${imdbId}`;
+  }
+  return montarUrlSuperCDN(imdbId, tipo, season, episode);
 }
 
 /**
@@ -343,6 +351,18 @@ export async function buscarEReproduzirSuperCDN(
   };
 }
 
+export function renderizarPlayerNativo(videoUrl: string, poster: string = ''): string {
+  return `<video 
+    src="${videoUrl}" 
+    poster="${poster}" 
+    controls 
+    autoplay 
+    playsinline 
+    class="w-full h-full object-contain bg-black rounded-lg">
+    Seu navegador não suporta reprodução de vídeo nativa.
+  </video>`;
+}
+
 // Exportações padrão para ambientes Node.js ou navegador
 export default {
   TMDB_API_KEY,
@@ -351,5 +371,6 @@ export default {
   montarUrlSuperCDN,
   renderizarPlayerSuperCDN,
   renderizarPlayerNativo,
+  obterUrlCanalPlayer,
   buscarEReproduzirSuperCDN
 };

@@ -3,10 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>StreamFlix - On-Demand Debrid Stream</title>
-    <meta name="description" content="Streaming Sob Demanda estilo Netflix com Debrid P2P e Auto-Limpeza rotativa TorBox." />
-    <meta property="og:title" content="StreamFlix - On-Demand Debrid Stream" />
-    <meta property="og:description" content="Streaming Sob Demanda estilo Netflix com Debrid P2P e Auto-Limpeza rotativa TorBox." />
+    <title>StreamFlix - TorBox & Filemoon Streaming Hub</title>
+    <meta name="description" content="Plataforma de streaming estilo Netflix com sincronização automatizada TorBox, TMDB e Filemoon." />
+    <meta property="og:title" content="StreamFlix - TorBox & Filemoon Streaming Hub" />
+    <meta property="og:description" content="Plataforma de streaming estilo Netflix com sincronização automatizada TorBox, TMDB e Filemoon." />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
 
@@ -374,6 +374,11 @@
 
             <!-- Botões de Ação do Player (Inline) -->
             <div class="flex items-center gap-2 flex-wrap">
+              <button onclick="alternarCanalPlayer()" id="btn-alternar-canal" class="px-3 py-1.5 rounded-lg bg-[#E50914] hover:bg-[#b80710] text-xs font-bold text-white transition-all flex items-center gap-1.5 cursor-pointer shadow-md shadow-[#E50914]/20" title="Alternar Canal (caso o canal atual apresente tela preta)">
+                <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>
+                <span id="label-canal-ativo">Canal 1 (Plenoflu)</span>
+              </button>
+
               <button onclick="toggleFullscreenPlayer()" class="px-3 py-1.5 rounded-lg bg-[#000000] hover:bg-[#222222] border border-[#333333] text-xs font-mono text-neutral-200 hover:text-white transition-all flex items-center gap-1.5 cursor-pointer" title="Tela Cheia">
                 <svg class="w-3.5 h-3.5 text-neutral-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-5h-4m4 0v4m0-4l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/></svg>
                 <span>Tela Cheia</span>
@@ -856,7 +861,65 @@
     playsinline 
     class="w-full h-full object-contain bg-black rounded-lg">
     Seu navegador não suporta reprodução de vídeo nativa.
-</video>`;
+  </video>`;
+}
+
+      // =========================================================================
+      // GERENCIADOR MULTI-CANAL PARA CONTORNO DE TELAS PRETAS
+      // =========================================================================
+      let currentChannelIndex = 0; // 0: Plenoflu Oficial, 1: Canal 2 (SuperFlix), 2: Canal 3 (StreamBetter)
+
+      function alternarCanalPlayer() {
+        if (!currentImdbId) {
+          showToast("Nenhum filme ou série carregado no momento.", true);
+          return;
+        }
+        currentChannelIndex = (currentChannelIndex + 1) % 3;
+        carregarCanalPlayer(currentChannelIndex);
+      }
+
+      function carregarCanalPlayer(channelIndex) {
+        currentChannelIndex = channelIndex;
+        const label = document.getElementById('label-canal-ativo');
+        const frame = document.getElementById('SuperCDNContainerVideo') || document.getElementById('iframe-mount-point');
+        if (!frame || !currentImdbId) return;
+
+        let targetUrl = '';
+        const isTv = currentMediaType === 'tvshow' || currentMediaType === 'tv';
+
+        if (channelIndex === 0) {
+          if (label) label.innerText = 'Canal 1 (Plenoflu)';
+          const s = (isTv && currentSeason) ? '/' + currentSeason : '';
+          const ep = (isTv && currentEpisode) ? '/' + currentEpisode : '';
+          const cleanType = isTv ? 'tvshow' : 'movie';
+          const isProxy = window.location.hostname.includes('localhost') || 
+                          window.location.hostname.includes('127.0.0.1') || 
+                          window.location.hostname.includes('run.app') || 
+                          window.location.hostname.includes('vercel.app');
+          targetUrl = isProxy 
+            ? `/api-plenoflu/${cleanType}/${currentImdbId}${s}${ep}`
+            : `https://plenoflu.com/${cleanType}/${currentImdbId}${s}${ep}`;
+        } else if (channelIndex === 1) {
+          if (label) label.innerText = 'Canal 2 (SuperFlix)';
+          targetUrl = isTv
+            ? `https://superflixapi.fun/serie/${currentImdbId}/${currentSeason || 1}/${currentEpisode || 1}`
+            : `https://superflixapi.fun/filme/${currentImdbId}#noEpList`;
+        } else if (channelIndex === 2) {
+          if (label) label.innerText = 'Canal 3 (StreamBetter)';
+          targetUrl = isTv
+            ? `https://superflixapi.fun/serie/${currentImdbId}/${currentSeason || 1}/${currentEpisode || 1}`
+            : `https://superflixapi.fun/filme/${currentImdbId}`;
+        }
+
+        currentEmbedUrl = targetUrl;
+        const endpointLabel = document.getElementById('modal-endpoint-label');
+        if (endpointLabel) {
+          endpointLabel.innerText = targetUrl;
+          endpointLabel.title = targetUrl;
+        }
+
+        frame.innerHTML = '<iframe src="' + targetUrl + '" width="100%" height="100%" scrolling="no" frameborder="0" allowfullscreen="" webkitallowfullscreen="" mozallowfullscreen="" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" class="w-full h-full border-0"></iframe>';
+        showToast(`Alternado para ${label ? label.innerText : 'Canal ' + (channelIndex + 1)}`);
       }
 
       /**
@@ -932,6 +995,11 @@
             endpointLabel.innerText = embedUrl;
             endpointLabel.title = embedUrl;
           }
+
+          // Reseta canal ativo para Canal 1 (Plenoflu Oficial)
+          currentChannelIndex = 0;
+          const labelCanal = document.getElementById('label-canal-ativo');
+          if (labelCanal) labelCanal.innerText = 'Canal 1 (Plenoflu)';
 
           // Injeção do <iframe> oficial da Plenoflu (SuperCDN)
           SuperCDNJSPlugin(mediaType, imdbId, currentSeason, currentEpisode);
