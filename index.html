@@ -360,6 +360,25 @@
             </div>
           </div>
 
+          <!-- Barra de Canais de Servidor Nativo -->
+          <div class="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-xl bg-[#0a0a0a] border border-[#262626]">
+            <div class="flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span class="text-[11px] font-bold text-neutral-300 uppercase tracking-wider">Canais Disponíveis:</span>
+            </div>
+            <div class="flex items-center gap-1.5 flex-wrap">
+              <button onclick="carregarCanalPlayer(0)" id="btn-canal-0" class="px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer bg-[#E50914] text-white shadow-md shadow-[#E50914]/20">
+                Canal 1 (Plenoflu Oficial)
+              </button>
+              <button onclick="carregarCanalPlayer(1)" id="btn-canal-1" class="px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer bg-[#1e1e1e] hover:bg-[#2e2e2e] text-neutral-300">
+                Canal 2 (SuperFlix Direto)
+              </button>
+              <button onclick="carregarCanalPlayer(2)" id="btn-canal-2" class="px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer bg-[#1e1e1e] hover:bg-[#2e2e2e] text-neutral-300">
+                Canal 3 (StreamBetter)
+              </button>
+            </div>
+          </div>
+
           <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#262626] pb-3">
             <div>
               <div class="flex items-center gap-2 text-xs text-neutral-400">
@@ -805,7 +824,7 @@
 
         const frame = document.getElementById('SuperCDNContainerVideo') || document.getElementById('iframe-mount-point');
         if (frame) {
-          frame.innerHTML = '<iframe src="' + streamUrl + '" width="100%" height="100%" scrolling="no" frameborder="0" allowfullscreen="" webkitallowfullscreen="" mozallowfullscreen="" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" class="w-full h-full border-0"></iframe>';
+          frame.innerHTML = '<iframe src="' + streamUrl + '" width="100%" height="100%" scrolling="no" frameborder="0" allowfullscreen="" webkitallowfullscreen="" mozallowfullscreen="" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" referrerpolicy="no-referrer" class="w-full h-full border-0"></iframe>';
         }
 
         return streamUrl;
@@ -880,15 +899,27 @@
 
       function carregarCanalPlayer(channelIndex) {
         currentChannelIndex = channelIndex;
-        const label = document.getElementById('label-canal-ativo');
         const frame = document.getElementById('SuperCDNContainerVideo') || document.getElementById('iframe-mount-point');
         if (!frame || !currentImdbId) return;
 
+        // Atualiza estilo dos botões da barra de canais
+        for (let i = 0; i < 3; i++) {
+          const btn = document.getElementById(`btn-canal-${i}`);
+          if (btn) {
+            if (i === channelIndex) {
+              btn.className = "px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer bg-[#E50914] text-white shadow-md shadow-[#E50914]/20";
+            } else {
+              btn.className = "px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer bg-[#1e1e1e] hover:bg-[#2e2e2e] text-neutral-300";
+            }
+          }
+        }
+
         let targetUrl = '';
+        let channelName = '';
         const isTv = currentMediaType === 'tvshow' || currentMediaType === 'tv';
 
         if (channelIndex === 0) {
-          if (label) label.innerText = 'Canal 1 (Plenoflu)';
+          channelName = 'Canal 1 (Plenoflu Oficial)';
           const s = (isTv && currentSeason) ? '/' + currentSeason : '';
           const ep = (isTv && currentEpisode) ? '/' + currentEpisode : '';
           const cleanType = isTv ? 'tvshow' : 'movie';
@@ -900,16 +931,19 @@
             ? `/api-plenoflu/${cleanType}/${currentImdbId}${s}${ep}`
             : `https://plenoflu.com/${cleanType}/${currentImdbId}${s}${ep}`;
         } else if (channelIndex === 1) {
-          if (label) label.innerText = 'Canal 2 (SuperFlix)';
+          channelName = 'Canal 2 (SuperFlix Direto)';
           targetUrl = isTv
             ? `https://superflixapi.fun/serie/${currentImdbId}/${currentSeason || 1}/${currentEpisode || 1}`
             : `https://superflixapi.fun/filme/${currentImdbId}#noEpList`;
         } else if (channelIndex === 2) {
-          if (label) label.innerText = 'Canal 3 (StreamBetter)';
+          channelName = 'Canal 3 (StreamBetter)';
           targetUrl = isTv
             ? `https://superflixapi.fun/serie/${currentImdbId}/${currentSeason || 1}/${currentEpisode || 1}`
             : `https://superflixapi.fun/filme/${currentImdbId}`;
         }
+
+        const label = document.getElementById('label-canal-ativo');
+        if (label) label.innerText = channelName;
 
         currentEmbedUrl = targetUrl;
         const endpointLabel = document.getElementById('modal-endpoint-label');
@@ -918,8 +952,8 @@
           endpointLabel.title = targetUrl;
         }
 
-        frame.innerHTML = '<iframe src="' + targetUrl + '" width="100%" height="100%" scrolling="no" frameborder="0" allowfullscreen="" webkitallowfullscreen="" mozallowfullscreen="" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" class="w-full h-full border-0"></iframe>';
-        showToast(`Alternado para ${label ? label.innerText : 'Canal ' + (channelIndex + 1)}`);
+        frame.innerHTML = '<iframe src="' + targetUrl + '" width="100%" height="100%" scrolling="no" frameborder="0" allowfullscreen="" webkitallowfullscreen="" mozallowfullscreen="" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" referrerpolicy="no-referrer" class="w-full h-full border-0"></iframe>';
+        showToast(`Alternado para ${channelName}`);
       }
 
       /**
@@ -999,7 +1033,15 @@
           // Reseta canal ativo para Canal 1 (Plenoflu Oficial)
           currentChannelIndex = 0;
           const labelCanal = document.getElementById('label-canal-ativo');
-          if (labelCanal) labelCanal.innerText = 'Canal 1 (Plenoflu)';
+          if (labelCanal) labelCanal.innerText = 'Canal 1 (Plenoflu Oficial)';
+          for (let i = 0; i < 3; i++) {
+            const b = document.getElementById(`btn-canal-${i}`);
+            if (b) {
+              b.className = i === 0 
+                ? "px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer bg-[#E50914] text-white shadow-md shadow-[#E50914]/20"
+                : "px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer bg-[#1e1e1e] hover:bg-[#2e2e2e] text-neutral-300";
+            }
+          }
 
           // Injeção do <iframe> oficial da Plenoflu (SuperCDN)
           SuperCDNJSPlugin(mediaType, imdbId, currentSeason, currentEpisode);

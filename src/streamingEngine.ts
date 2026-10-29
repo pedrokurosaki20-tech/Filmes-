@@ -225,7 +225,7 @@ export function SuperCDNJSPlugin(
   if (typeof document !== 'undefined') {
     const frame = document.getElementById('SuperCDNContainerVideo') || document.getElementById('iframe-mount-point');
     if (frame) {
-      frame.innerHTML = '<iframe src="' + streamUrl + '" width="100%" height="100%" scrolling="no" frameborder="0" allowfullscreen="" webkitallowfullscreen="" mozallowfullscreen="" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" class="w-full h-full border-0"></iframe>';
+      frame.innerHTML = '<iframe src="' + streamUrl + '" width="100%" height="100%" scrolling="no" frameborder="0" allowfullscreen="" webkitallowfullscreen="" mozallowfullscreen="" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" referrerpolicy="no-referrer" class="w-full h-full border-0"></iframe>';
     }
   }
 
@@ -287,7 +287,7 @@ export function renderizarPlayerSuperCDN(
     ? '/api-plenoflu/' + cleanType + '/' + imdbId + s + e
     : 'https://plenoflu.com/' + cleanType + '/' + imdbId + s + e;
 
-  return '<iframe src="' + streamUrl + '" width="100%" height="100%" scrolling="no" frameborder="0" allowfullscreen="" webkitallowfullscreen="" mozallowfullscreen="" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" class="w-full h-full border-0"></iframe>';
+  return '<iframe src="' + streamUrl + '" width="100%" height="100%" scrolling="no" frameborder="0" allowfullscreen="" webkitallowfullscreen="" mozallowfullscreen="" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" referrerpolicy="no-referrer" class="w-full h-full border-0"></iframe>';
 }
 
 /**
