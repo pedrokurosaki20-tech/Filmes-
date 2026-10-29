@@ -291,26 +291,52 @@ export function renderizarPlayerSuperCDN(
 }
 
 /**
- * Retorna URLs dos canais disponíveis (Canal 1: Plenoflu Oficial, Canal 2: SuperFlix, Canal 3: StreamBetter)
+ * ARQUITETURA INDIVIDUAL DOS CANAIS DE REPRODUÇÃO:
+ * - Canal 1: Reprodução Direta (Plenoflu SuperCDN oficial)
+ * - Canal 2: Verificação CAPTCHA + Seleção de Servidor (Principal/Alternativo) e Idioma (Dublado/Legendado)
+ * - Canal 3: Verificação CAPTCHA + Reprodução Direta (sem menus de servidores ou idiomas de Canal 2)
  */
 export function obterUrlCanalPlayer(
-  channelIndex: number,
+  canalNumero: number, // 1, 2 ou 3
   imdbId: string,
   tipo: 'movie' | 'tvshow' | 'tv' = 'movie',
   season: string | number = 1,
   episode: string | number = 1
 ): string {
   const isTv = tipo === 'tvshow' || tipo === 'tv';
-  if (channelIndex === 1) {
-    return isTv
-      ? `https://superflixapi.fun/serie/${imdbId}/${season || 1}/${episode || 1}`
-      : `https://superflixapi.fun/filme/${imdbId}#noEpList`;
+  const s = season || 1;
+  const ep = episode || 1;
+
+  if (canalNumero === 1) {
+    // CANAL 1 — Reprodução direta (Plenoflu oficial)
+    const sPath = isTv ? `/${s}` : '';
+    const epPath = isTv ? `/${ep}` : '';
+    const cleanType = isTv ? 'tvshow' : 'movie';
+    const isProxy = typeof window !== 'undefined' && (
+      window.location.hostname.includes('localhost') || 
+      window.location.hostname.includes('127.0.0.1') || 
+      window.location.hostname.includes('run.app') || 
+      window.location.hostname.includes('vercel.app')
+    );
+    return isProxy
+      ? `/api-plenoflu/${cleanType}/${imdbId}${sPath}${epPath}`
+      : `https://plenoflu.com/${cleanType}/${imdbId}${sPath}${epPath}`;
   }
-  if (channelIndex === 2) {
+
+  if (canalNumero === 2) {
+    // CANAL 2 — Verificação CAPTCHA e seleção de reprodução (Servidor Principal/Alternativo + Dublado/Legendado)
     return isTv
-      ? `https://superflixapi.fun/serie/${imdbId}/${season || 1}/${episode || 1}`
+      ? `https://superflixapi.fun/serie/${imdbId}/${s}/${ep}`
       : `https://superflixapi.fun/filme/${imdbId}`;
   }
+
+  if (canalNumero === 3) {
+    // CANAL 3 — Verificação e reprodução direta (Prossegue direto ao player de vídeo após verificação)
+    return isTv
+      ? `https://vidsrc.pm/embed/tv/${imdbId}/${s}/${ep}`
+      : `https://vidsrc.pm/embed/movie/${imdbId}`;
+  }
+
   return montarUrlSuperCDN(imdbId, tipo, season, episode);
 }
 

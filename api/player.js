@@ -14,7 +14,7 @@ async function getRawBody(req) {
 }
 
 export default async function handler(req, res) {
-  // Configuração global de CORS permissivo
+  // Configuração global de CORS e headers permissivos para o Canal 1 (Plenoflu)
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', '*');
@@ -64,45 +64,45 @@ export default async function handler(req, res) {
 
     res.setHeader('Content-Type', contentType);
 
-    // Resposta de API (JSON com video_url)
+    // Resposta de API interna do SuperCDN (POST /api com getPlayer e video_id)
     if (contentType.includes('application/json') || isApiRoute) {
-      try {
-        const json = await response.json();
-
-        // VALIDAÇÃO E RECUPERAÇÃO DE CANAL:
-        // Se a Plenoflu retornar o provedor 'vaiquecol.com', sabemos que este servidor
-        // está retornando HTTP 404 (fora do ar). Substituímos pelo link estável SuperFlix.
-        if (json && json.data && json.data.video_url) {
-          try {
-            let decoded = Buffer.from(json.data.video_url, 'base64').toString('utf-8');
-            if (decoded.includes('vaiquecol.com')) {
-              const imdbMatch = decoded.match(/tt\d+/);
-              if (imdbMatch) {
-                const imdbId = imdbMatch[0];
-                const fixedUrl = `https://superflixapi.fun/filme/${imdbId}#noEpList`;
-                json.data.video_url = Buffer.from(fixedUrl).toString('base64');
-              }
+      const json = await response.json();
+      if (json && json.data && json.data.video_url) {
+        try {
+          const rawUrl = Buffer.from(json.data.video_url, 'base64').toString('utf-8');
+          // Canal 1: Se apontar para vaiquecol.com (domínio desativado com 404),
+          // substitui pelo player direto canônico para manter a reprodução direta sem CAPTCHA ou opções
+          if (rawUrl.includes('vaiquecol.com')) {
+            const imdbMatch = rawUrl.match(/(tt\d+)/);
+            const imdbId = imdbMatch ? imdbMatch[1] : '';
+            if (imdbId) {
+              const directPlayerUrl = `https://vidsrc.pm/embed/movie/${imdbId}`;
+              json.data.video_url = Buffer.from(directPlayerUrl).toString('base64');
             }
-          } catch (e) {}
+          }
+        } catch (_) {
+          // Mantém URL original caso ocorra falha de decodificação
         }
-
-        return res.status(response.status).json(json);
-      } catch (jsonErr) {
-        const rawText = await response.text();
-        return res.status(response.status).send(rawText);
       }
+      return res.status(response.status).json(json);
     }
 
     let html = await response.text();
 
-    // 1. Remove qualquer bloqueio de devtools
+    // 1. Desativa detector de devtools da Plenoflu
     html = html.replace(/devtoolsDetector/g, 'noopDevtools');
 
-    // 2. Aponta as chamadas de API do player diretamente para o endpoint de proxy
+    // 2. Aponta chamadas da API interna do player para o proxy local/Vercel (elimina bloqueios de CORS)
     html = html.replace(/var HOME_URL\s*=\s*['"]https:\/\/plenoflu\.com['"]/g, 'var HOME_URL = "/api-plenoflu"');
 
-    // 3. Injeção de CSS e JS para garantir transição imediata do canal e reprodução do filme
-    const enhancedInjections = `
+    // 3. Garante que o iframe interno use referrerpolicy seguro e permissões completas de mídia
+    html = html.replace(
+      '<iframe allowfullscreen frameborder="0" src="${msg.data.video_url}"></iframe>',
+      '<iframe allowfullscreen frameborder="0" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" referrerpolicy="strict-origin-when-cross-origin" src="${msg.data.video_url}" style="width:100%;height:100%;border:0;"></iframe>'
+    );
+
+    // 4. Injeta estilos para exibição direta em tela cheia do player selecionado e botão Voltar Aos Canais
+    const playerStyles = `
     <style>
       .player_container.visible {
         top: 0 !important;
@@ -123,81 +123,30 @@ export default async function handler(req, res) {
         border: 0 !important;
       }
       .changeOptions {
-        z-index: 100 !important;
+        background: #14ce008c !important;
+        color: #fff !important;
+        padding: 8px 16px !important;
+        border-radius: 0 0 10px 10px !important;
+        font-weight: 700 !important;
+        font-size: 13px !important;
+        position: absolute !important;
+        top: 0 !important;
+        left: 50% !important;
+        transform: translateX(-50%) !important;
+        z-index: 9999 !important;
+        cursor: pointer !important;
+        transition: opacity .2s ease !important;
+      }
+      .changeOptions:hover {
+        opacity: .8 !important;
       }
     </style>
-    <script>
-      $(document).ready(function() {
-        // Intercepta e garante a execução do clique nos canais da Plenoflu
-        $(document).off('click', '.player_select_item').on('click', '.player_select_item', function(e) {
-          e.preventDefault();
-          e.stopPropagation();
-
-          var video_id = $(this).data('id');
-          var currentPath = window.location.pathname;
-          var imdbMatch = currentPath.match(/tt\\d+/);
-          var imdb = imdbMatch ? imdbMatch[0] : '';
-          var isTv = currentPath.includes('tvshow') || currentPath.includes('tv');
-
-          // Exibe o loader
-          $('.player_loading').remove();
-          $('body').append('<div class="player_loading" style="z-index:999;"><i class="ri-loader-5-line"></i></div>');
-
-          function executarPlayer(streamUrl) {
-            $('.player_loading').remove();
-            $('.players_select_container').addClass('hidden');
-            $('.player_container').addClass('visible');
-            $('.changeOptions').removeClass('hidden');
-            $('.player_container .infra').html(
-              '<iframe src="' + streamUrl + '" width="100%" height="100%" scrolling="no" frameborder="0" allowfullscreen="" webkitallowfullscreen="" mozallowfullscreen="" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" referrerpolicy="no-referrer" style="width:100%;height:100%;border:0;"></iframe>'
-            );
-          }
-
-          var fallbackUrl = isTv 
-            ? 'https://superflixapi.fun/serie/' + imdb + '/1/1'
-            : 'https://superflixapi.fun/filme/' + imdb + '#noEpList';
-
-          // Executa requisição para obter a URL real
-          $.ajax({
-            url: '/api-plenoflu/api',
-            method: 'POST',
-            data: { action: 'getPlayer', video_id: video_id },
-            timeout: 3500,
-            success: function(res) {
-              try {
-                if (res && res.data && res.data.video_url) {
-                  var decoded = atob(res.data.video_url);
-                  if (decoded && !decoded.includes('vaiquecol.com')) {
-                    executarPlayer(decoded);
-                    return;
-                  }
-                }
-              } catch(err) {
-                console.warn('[Plenoflu] Erro ao decodificar:', err);
-              }
-              executarPlayer(fallbackUrl);
-            },
-            error: function(err) {
-              console.warn('[Plenoflu] API indisponível, iniciando stream alternativo:', err);
-              executarPlayer(fallbackUrl);
-            }
-          });
-        });
-
-        // Botão Voltar aos Canais
-        $(document).on('click', '.changeOptions', function() {
-          $('.player_container').removeClass('visible');
-          $('.players_select_container').removeClass('hidden');
-          $('.player_container .infra').html('');
-        });
-      });
-    </script>
     `;
 
-    if (html.includes('</body>')) {
-      html = html.replace('</body>', `${enhancedInjections}</body>`);
+    if (html.includes('</head>')) {
+      html = html.replace('</head>', `${playerStyles}</head>`);
     } else {
-      html += enhancedInjections;
+      html = playerStyles + html;
     }
 
     return res.status(200).send(html);
