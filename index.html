@@ -24,13 +24,16 @@
     <link rel="preconnect" href="https://challenges.cloudflare.com" crossorigin />
     <link rel="dns-prefetch" href="https://challenges.cloudflare.com" />
 
-    <!-- Escudo Anti-Anúncios e Bloqueio de Pop-ups de Terceiros -->
+    <!-- Proteção Anti-Hijack da Aba Principal -->
     <script>
-      // Bloqueia qualquer tentativa de abertura de pop-ups ou abas de terceiros ao clicar no player
-      window.open = function(url, target, features) {
-        console.warn('[StreamFlix AdBlock] Tentativa de abertura de pop-up/nova aba bloqueada com sucesso:', url);
-        return null;
-      };
+      // Protege a aba principal contra redirecionamentos forçados (top-navigation hijack) sem quebrar scripts internos do iframe
+      window.addEventListener('beforeunload', function(e) {
+        const modal = document.getElementById('player-modal');
+        if (modal && !modal.classList.contains('hidden')) {
+          e.preventDefault();
+          e.returnValue = '';
+        }
+      });
     </script>
 
     <!-- Video.js CDN para suporte avançado a múltiplas faixas de áudio -->
@@ -426,6 +429,11 @@
 
             <!-- Botões de Ação do Player (Inline) -->
             <div class="flex items-center gap-2 flex-wrap">
+              <button onclick="ativarDnsNoCelular('wireless')" class="px-3 py-1.5 rounded-lg bg-[#E50914] hover:bg-[#B80710] text-xs font-bold text-white transition-all flex items-center gap-1.5 cursor-pointer shadow-sm shadow-[#E50914]/30 active:scale-95" title="Copia o código e abre as configurações do celular para zerar anúncios">
+                <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8 0-1.85.63-3.55 1.69-4.9L16.9 18.31C15.55 19.37 13.85 20 12 20zm6.31-3.1L7.1 5.69C8.45 4.63 10.15 4 12 4c4.42 0 8 3.58 8 8 0 1.85-.63 3.55-1.69 4.9z"/></svg>
+                <span id="btn-zerar-anuncios-inline-text">Zerar Anúncios</span>
+              </button>
+
               <button onclick="toggleFullscreenPlayer()" class="px-3 py-1.5 rounded-lg bg-[#000000] hover:bg-[#222222] border border-[#333333] text-xs font-mono text-neutral-200 hover:text-white transition-all flex items-center gap-1.5 cursor-pointer" title="Tela Cheia">
                 <svg class="w-3.5 h-3.5 text-neutral-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-5h-4m4 0v4m0-4l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/></svg>
                 <span>Tela Cheia</span>
@@ -442,21 +450,27 @@
             Sinopse indisponível.
           </p>
 
-          <div class="p-2.5 rounded-xl bg-[#0a0a0a] border border-[#262626] text-xs text-neutral-400 flex flex-wrap items-center justify-between gap-2">
+          <!-- CARD LIMPO COM BOTÃO DIRETO PARA ZERAR ANÚNCIOS (SEM EXPLICAÇÕES) -->
+          <div class="p-3 rounded-xl bg-[#0a0a0a] border border-[#262626] flex items-center justify-between gap-3">
             <div class="flex items-center gap-2">
-              <span class="text-sm">🛡️</span>
-              <span class="text-[11px] text-neutral-300">Modo Ultra Rápido • AdBlock Ativo (Pop-ups e Anúncios Bloqueados)</span>
+              <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span class="text-xs font-medium text-neutral-300">Assistir sem pop-ups ou anúncios</span>
             </div>
-            <div class="flex items-center gap-2">
-              <span class="text-[10px] font-mono text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-900/50">⚡ Conexão Acelerada</span>
-              <span class="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 px-2 py-0.5 rounded border border-cyan-900/50">1080p Full HD</span>
-            </div>
+            <button 
+              id="btn-zerar-anuncios-card"
+              onclick="ativarDnsNoCelular('wireless')" 
+              class="px-4 py-2 rounded-lg bg-[#E50914] hover:bg-[#B80710] text-white text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-md shadow-[#E50914]/30 active:scale-95">
+              <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8 0-1.85.63-3.55 1.69-4.9L16.9 18.31C15.55 19.37 13.85 20 12 20zm6.31-3.1L7.1 5.69C8.45 4.63 10.15 4 12 4c4.42 0 8 3.58 8 8 0 1.85-.63 3.55-1.69 4.9z"/></svg>
+              <span id="btn-zerar-anuncios-card-text">Zerar Anúncios</span>
+            </button>
           </div>
         </div>
 
       </div>
 
     </div>
+
+
 
     <!-- NOTIFICAÇÃO TOAST FLUTUANTE -->
     <div id="toast" class="fixed bottom-5 right-5 z-50 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none px-4 py-3 rounded-xl bg-[#141414] border border-[#E50914] text-white text-xs sm:text-sm font-medium shadow-2xl flex items-center gap-2">
@@ -1005,27 +1019,20 @@
           }
         }
 
-        // Injeta o player com isolamento Sandbox rigoroso (Anti-anúncios, anti-popups)
+        // Injeta o player com os atributos oficiais recomendados pelas APIs (sem sandbox que aciona bloqueios dos provedores)
         const frame = document.getElementById('SuperCDNContainerVideo') || document.getElementById('iframe-mount-point');
         if (frame) {
-          // BLOQUEIO TOTAL DE ANÚNCIOS E POP-UPS EM INTERAÇÕES (PLAY, ADIANTAR, PAUSE):
-          // Removidos 'allow-popups', 'allow-popups-to-escape-sandbox' e 'allow-top-navigation'.
-          // Qualquer clique do usuário (play, barra de progresso, adiantar) que acionaria abas ou pop-ups
-          // é sumariamente bloqueado pelo motor do navegador.
-          // 'allow-scripts': executa player e controles
-          // 'allow-same-origin': permite buffers de vídeo HLS e cookies legítimos
-          // 'allow-forms': permite submissão de verificação Turnstile nos canais 2 e 3
-          // 'allow-presentation': permite alternar para tela cheia
           frame.innerHTML = `<iframe 
             src="${streamUrl}" 
-            sandbox="allow-scripts allow-same-origin allow-forms allow-presentation" 
-            referrerpolicy="no-referrer" 
-            allow="autoplay; encrypted-media; fullscreen; picture-in-picture" 
+            width="100%" 
+            height="100%" 
             scrolling="no" 
             frameborder="0" 
             allowfullscreen 
             webkitallowfullscreen 
             mozallowfullscreen 
+            allow="autoplay; encrypted-media; fullscreen; picture-in-picture" 
+            referrerpolicy="strict-origin-when-cross-origin" 
             class="w-full h-full border-0 rounded-lg"></iframe>`;
 
           // Acelera a remoção do loader assim que o frame emitir evento load
@@ -1303,6 +1310,69 @@
         });
       }
 
+      function openAdBlockGuideModal() {
+        ativarDnsNoCelular('wireless');
+      }
+
+      function closeAdBlockGuideModal() {}
+
+      /**
+       * Ativação Automática de DNS no Celular (Android)
+       * 1. Copia 'dns.adguard-dns.com' automaticamente para a área de transferência
+       * 2. Exibe feedback imediato no botão e toast rápido
+       * 3. Dispara o Intent nativo do Android para abrir diretamente a tela de Rede/Conexões (onde fica o DNS Privado)
+       */
+      function ativarDnsNoCelular(actionType) {
+        const dnsCode = 'dns.adguard-dns.com';
+        const cardBtnText = document.getElementById('btn-zerar-anuncios-card-text');
+        const inlineBtnText = document.getElementById('btn-zerar-anuncios-inline-text');
+
+        // 1. Copia o código para a área de transferência
+        let copiado = false;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(dnsCode).then(() => {
+            copiado = true;
+          }).catch(() => {});
+        }
+
+        if (!copiado) {
+          try {
+            const temp = document.createElement('textarea');
+            temp.value = dnsCode;
+            temp.setAttribute('readonly', '');
+            temp.style.position = 'absolute';
+            temp.style.left = '-9999px';
+            document.body.appendChild(temp);
+            temp.select();
+            document.execCommand('copy');
+            document.body.removeChild(temp);
+          } catch(e) {}
+        }
+
+        // Feedback visual imediato nos botões
+        if (cardBtnText) cardBtnText.innerText = "✓ Código Copiado! Abrindo...";
+        if (inlineBtnText) inlineBtnText.innerText = "✓ Copiado!";
+        setTimeout(() => {
+          if (cardBtnText) cardBtnText.innerText = "Zerar Anúncios";
+          if (inlineBtnText) inlineBtnText.innerText = "Zerar Anúncios";
+        }, 3500);
+
+        showToast("Código copiado! Abrindo Configurações de Rede...");
+
+        // 2. Dispara o Intent do Android para abrir a tela de configurações (Rede e Internet / Conexões)
+        setTimeout(() => {
+          try {
+            if (actionType === 'settings') {
+              window.location.href = "intent:#Intent;action=android.settings.SETTINGS;end";
+            } else {
+              window.location.href = "intent:#Intent;action=android.settings.WIRELESS_SETTINGS;end";
+            }
+          } catch(err) {
+            console.log('Intent launch fallback:', err);
+          }
+        }, 400);
+      }
+
       /**
        * 6. RECARREGAMENTO SEGURO INLINE VIA PROXY DE HEADERS (Bypass de CSP e X-Frame-Options)
        * Mantém o usuário estritamente dentro da mesma view do aplicativo sem novas abas
@@ -1328,13 +1398,12 @@
     height="100%" 
     frameborder="0" 
     scrolling="no" 
-    allowfullscreen="true" 
-    webkitallowfullscreen="true" 
-    mozallowfullscreen="true" 
-    referrerpolicy="no-referrer"
-    sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"
-    allow="autoplay; encrypted-media; picture-in-picture"
-    class="w-full h-full border-0">
+    allowfullscreen 
+    webkitallowfullscreen 
+    mozallowfullscreen 
+    referrerpolicy="strict-origin-when-cross-origin" 
+    allow="autoplay; encrypted-media; fullscreen; picture-in-picture" 
+    class="w-full h-full border-0 rounded-lg">
 </iframe>`;
         showToast("Player reconectado inline com proxy de cabeçalhos.");
       }
