@@ -10,6 +10,29 @@
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
 
+    <!-- Aceleração de Conexão Rápida (Preconnect e DNS-Prefetch para os 3 Canais e TMDB) -->
+    <link rel="preconnect" href="https://vidsrc.pm" crossorigin />
+    <link rel="dns-prefetch" href="https://vidsrc.pm" />
+    <link rel="preconnect" href="https://superflixapi.fun" crossorigin />
+    <link rel="dns-prefetch" href="https://superflixapi.fun" />
+    <link rel="preconnect" href="https://streambetter.lol" crossorigin />
+    <link rel="dns-prefetch" href="https://streambetter.lol" />
+    <link rel="preconnect" href="https://api.themoviedb.org" />
+    <link rel="dns-prefetch" href="https://api.themoviedb.org" />
+    <link rel="preconnect" href="https://image.tmdb.org" />
+    <link rel="dns-prefetch" href="https://image.tmdb.org" />
+    <link rel="preconnect" href="https://challenges.cloudflare.com" crossorigin />
+    <link rel="dns-prefetch" href="https://challenges.cloudflare.com" />
+
+    <!-- Escudo Anti-Anúncios e Bloqueio de Pop-ups de Terceiros -->
+    <script>
+      // Bloqueia qualquer tentativa de abertura de pop-ups ou abas de terceiros ao clicar no player
+      window.open = function(url, target, features) {
+        console.warn('[StreamFlix AdBlock] Tentativa de abertura de pop-up/nova aba bloqueada com sucesso:', url);
+        return null;
+      };
+    </script>
+
     <!-- Video.js CDN para suporte avançado a múltiplas faixas de áudio -->
     <link href="https://vjs.zencdn.net/8.10.0/video-js.css" rel="stylesheet" />
     <script src="https://vjs.zencdn.net/8.10.0/video.min.js"></script>
@@ -360,14 +383,43 @@
             </div>
           </div>
 
+          <!-- SELETOR NATIVO DE CANAIS DE REPRODUÇÃO (STREAMFLIX) -->
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-xl bg-[#0a0a0a] border border-[#262626]">
+            <div class="flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-[#E50914] animate-pulse"></span>
+              <span class="text-xs font-bold text-white uppercase tracking-wider">Canais:</span>
+              <span id="channel-desc-hint" class="text-[11px] text-neutral-400 font-mono hidden md:inline">• Canal 1: Reprodução Direta</span>
+            </div>
+
+            <div class="flex items-center gap-2 flex-wrap" role="tablist">
+              <button onclick="selecionarCanal(1)" id="btn-canal-1" class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 bg-[#E50914] text-white shadow-md shadow-[#E50914]/30 ring-1 ring-[#E50914]" title="Canal 1: Reprodução Direta sem etapas intermediárias">
+                <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                <span>Canal 1</span>
+                <span class="text-[10px] opacity-80 font-normal font-mono">(Direto)</span>
+              </button>
+
+              <button onclick="selecionarCanal(2)" id="btn-canal-2" class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 bg-[#1a1a1a] hover:bg-[#262626] text-neutral-300 border border-[#2a2a2a]" title="Canal 2: Verificação CAPTCHA e seleção de servidor/idioma">
+                <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14.5v-9l6 4.5-6 4.5z"/></svg>
+                <span>Canal 2</span>
+                <span class="text-[10px] opacity-80 font-normal font-mono">(Servidores / Dub / Leg)</span>
+              </button>
+
+              <button onclick="selecionarCanal(3)" id="btn-canal-3" class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 bg-[#1a1a1a] hover:bg-[#262626] text-neutral-300 border border-[#2a2a2a]" title="Canal 3: Verificação CAPTCHA e reprodução direta">
+                <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                <span>Canal 3</span>
+                <span class="text-[10px] opacity-80 font-normal font-mono">(Verificação / Direto)</span>
+              </button>
+            </div>
+          </div>
+
           <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#262626] pb-3">
             <div>
               <div class="flex items-center gap-2 text-xs text-neutral-400">
                 <span id="modal-year" class="text-white font-medium"></span>
                 <span>•</span>
-                <span id="modal-channel-badge" class="uppercase text-emerald-400 font-bold font-mono text-[11px]">SUPERCDN OFICIAL</span>
+                <span id="modal-channel-badge" class="uppercase text-emerald-400 font-bold font-mono text-[11px]">CANAL 1 (REPRODUÇÃO DIRETA)</span>
                 <span>•</span>
-                <span id="modal-endpoint-label" class="text-neutral-400 font-mono text-[11px] truncate max-w-xs">plenoflu.com</span>
+                <span id="modal-endpoint-label" class="text-neutral-400 font-mono text-[11px] truncate max-w-xs">vidsrc.pm</span>
               </div>
               <h2 id="modal-full-title" class="text-base sm:text-xl font-bold text-white mt-1">--</h2>
             </div>
@@ -390,12 +442,15 @@
             Sinopse indisponível.
           </p>
 
-          <div class="p-2.5 rounded-xl bg-[#0a0a0a] border border-[#262626] text-xs text-neutral-400 flex items-center justify-between">
+          <div class="p-2.5 rounded-xl bg-[#0a0a0a] border border-[#262626] text-xs text-neutral-400 flex flex-wrap items-center justify-between gap-2">
             <div class="flex items-center gap-2">
               <span class="text-sm">🛡️</span>
-              <span class="text-[11px] text-neutral-300">Transmissão segura com aceleração de hardware e áudio dublado em português.</span>
+              <span class="text-[11px] text-neutral-300">Modo Ultra Rápido • AdBlock Ativo (Pop-ups e Anúncios Bloqueados)</span>
             </div>
-            <span class="text-[10px] font-mono text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-900/50">1080p Full HD</span>
+            <div class="flex items-center gap-2">
+              <span class="text-[10px] font-mono text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-900/50">⚡ Conexão Acelerada</span>
+              <span class="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 px-2 py-0.5 rounded border border-cyan-900/50">1080p Full HD</span>
+            </div>
           </div>
         </div>
 
@@ -423,10 +478,12 @@
       let currentHeroMovie = null;
       let currentProcessingMovie = null;
       let currentImdbId = "";
+      let currentTmdbId = "";
       let currentMediaType = "movie"; // 'movie' ou 'tvshow'
       let currentSeason = 1;
       let currentEpisode = 1;
       let currentEmbedUrl = "";
+      let canalAtivo = 1; // 1 = Direto (Padrão), 2 = SuperFlix, 3 = StreamBetter
 
       // =========================================================================
       // UTILITÁRIO TOAST E FEEDBACK
@@ -561,6 +618,9 @@
             setupHeroBanner(trendingMovies[0]);
           }
 
+          // Pré-aquece o cache em segundo plano para que o clique nos títulos mais populares seja imediato
+          preAquecerCacheEmAlta(trendingMovies);
+
           // 2. Populares
           const resPopular = await fetch(`https://api.themoviedb.org/3/movie/popular?api_key=${TMDB_API_KEY}&language=pt-BR&page=1`);
           const dataPopular = await resPopular.json();
@@ -573,6 +633,30 @@
 
         } catch (err) {
           console.error("Erro ao carregar catálogo dinâmico", err);
+        }
+      }
+
+      // Pré-carrega silenciosamente em segundo plano os IDs dos títulos em alta (0ms quando o usuário clicar)
+      function preAquecerCacheEmAlta(filmes) {
+        if (!filmes || !Array.isArray(filmes)) return;
+        const itensParaPreAquecer = filmes.slice(0, 10);
+        const executarPreCarga = async () => {
+          for (const item of itensParaPreAquecer) {
+            try {
+              const tipo = item.media_type === 'tv' ? 'tv' : 'movie';
+              const ano = (item.release_date || item.first_air_date || '').substring(0, 4);
+              const jaTemCache = buscarCacheImdb(tipo, item.id, item.title || item.name, ano);
+              if (!jaTemCache) {
+                await obterImdbId(item.title || item.name, ano, tipo, item.id);
+              }
+            } catch (_) {}
+          }
+        };
+
+        if (window.requestIdleCallback) {
+          window.requestIdleCallback(executarPreCarga, { timeout: 3000 });
+        } else {
+          setTimeout(executarPreCarga, 1200);
         }
       }
 
@@ -614,51 +698,108 @@
       // allowfullscreen="" webkitallowfullscreen="" mozallowfullscreen=""
       // =========================================================================
 
+      // =========================================================================
+      // CACHE PERSISTENTE DE IDENTIFICADORES IMDB (ACELERAÇÃO 0ms)
+      // =========================================================================
+      const IMDB_CACHE_STORAGE_KEY = "streamflix_imdb_cache_v2";
+      let imdbMemoryCache = {};
+      try {
+        imdbMemoryCache = JSON.parse(localStorage.getItem(IMDB_CACHE_STORAGE_KEY) || '{}');
+      } catch (_) {
+        imdbMemoryCache = {};
+      }
+
+      function salvarCacheImdb(chave, imdbId) {
+        if (!chave || !imdbId) return;
+        imdbMemoryCache[chave] = imdbId;
+        try {
+          localStorage.setItem(IMDB_CACHE_STORAGE_KEY, JSON.stringify(imdbMemoryCache));
+        } catch (_) {}
+      }
+
+      function buscarCacheImdb(tipo, tmdbId, nome, ano) {
+        if (tmdbId) {
+          const chaveTmdb = `${tipo}_tmdb_${tmdbId}`;
+          if (imdbMemoryCache[chaveTmdb]) return imdbMemoryCache[chaveTmdb];
+        }
+        if (nome) {
+          const nomeKey = `${tipo}_title_${nome.trim().toLowerCase()}_${ano || ''}`;
+          if (imdbMemoryCache[nomeKey]) return imdbMemoryCache[nomeKey];
+        }
+        return null;
+      }
+
       /**
-       * 1. OBTENÇÃO DO IMDB ID (Conversão Nome/Ano -> 'tt...')
+       * 1. OBTENÇÃO DO IMDB ID COM ACELERAÇÃO MÁXIMA E ZERO REDUNDÂNCIA
        * 
-       * Consulta a API do TMDB (e OMDb como contingência) para pesquisar o filme ou
-       * série e obter o código canônico do IMDb correspondente (ex: 'tt10872600').
-       * Se o usuário já tiver inserido diretamente um código 'tt...', o método retorna direto.
+       * Fluxo otimizado:
+       * 1. Verifica cache instantâneo em memória / LocalStorage (0ms).
+       * 2. Se tmdbId foi fornecido diretamente, consulta external_ids sem fazer buscas textuais.
+       * 3. Busca textual de contingência apenas se necessário.
+       * 4. Salva em cache para todas as próximas reproduções.
        * 
-       * @param {string} nomeConteudo Título do filme ou série (ex: "Vingadores", "Batman 2022")
-       * @param {string|number} ano Ano de lançamento para desempate preciso (opcional)
+       * @param {string} nomeConteudo Título do filme ou série
+       * @param {string|number} ano Ano de lançamento (opcional)
        * @param {string} tipo Tipo de mídia: 'movie' ou 'tvshow'/'tv' (padrão: 'movie')
+       * @param {string|number} explicitTmdbId ID TMDB direto do card (quando disponível)
        * @returns {Promise<string>} Código IMDb minúsculo (ex: 'tt10872600')
        */
-      async function obterImdbId(nomeConteudo, ano, tipo = 'movie') {
-        if (!nomeConteudo || !nomeConteudo.trim()) {
-          throw new Error("[SuperCDN] Nome do conteúdo não fornecido para busca do IMDb ID.");
+      async function obterImdbId(nomeConteudo, ano, tipo = 'movie', explicitTmdbId = null) {
+        if (!nomeConteudo && !explicitTmdbId) {
+          throw new Error("[SuperCDN] Identificador do conteúdo não fornecido.");
         }
 
-        const termoLimpo = nomeConteudo.trim();
-
-        // Se o termo já for um identificador IMDb direto (ex: 'tt10872600')
+        const termoLimpo = (nomeConteudo || '').trim();
         const regexImdbDireto = /^tt\d{6,10}$/i;
+
+        // Se o termo já for um identificador IMDb direto
         if (regexImdbDireto.test(termoLimpo)) {
-          console.log("[SuperCDN] IMDb ID direto fornecido:", termoLimpo);
           return termoLimpo.toLowerCase();
         }
 
         const isTvShow = tipo === 'tv' || tipo === 'tvshow';
+        const mediaType = isTvShow ? 'tv' : 'movie';
         const anoStr = ano ? String(ano).trim() : '';
 
+        // 1. VERIFICAÇÃO ULTRA RÁPIDA NO CACHE LOCAL (0ms)
+        const cachedId = buscarCacheImdb(mediaType, explicitTmdbId, termoLimpo, anoStr);
+        if (cachedId && regexImdbDireto.test(cachedId)) {
+          console.log(`[SuperCDN Cache Hit] IMDb ${cachedId} obtido instantaneamente.`);
+          return cachedId.toLowerCase();
+        }
+
         try {
-          // PASSO 1: Busca no TMDB
-          let urlBusca = '';
-          if (isTvShow) {
-            urlBusca = `https://api.themoviedb.org/3/search/tv?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(termoLimpo)}&language=pt-BR&include_adult=false${anoStr ? `&first_air_date_year=${anoStr}` : ''}`;
-          } else {
-            urlBusca = `https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(termoLimpo)}&language=pt-BR&include_adult=false${anoStr ? `&year=${anoStr}` : ''}`;
+          let tmdbId = explicitTmdbId;
+
+          // 2. SE TEM TMDB ID DIRETO (Ex: clicou num card de filme), PULA A BUSCA DE TEXTO
+          if (tmdbId) {
+            try {
+              const extUrl = `https://api.themoviedb.org/3/${mediaType}/${tmdbId}/external_ids?api_key=${TMDB_API_KEY}`;
+              const extRes = await fetch(extUrl);
+              if (extRes.ok) {
+                const extJson = await extRes.json();
+                if (extJson && extJson.imdb_id && regexImdbDireto.test(extJson.imdb_id)) {
+                  const resolvedImdb = extJson.imdb_id.trim().toLowerCase();
+                  salvarCacheImdb(`${mediaType}_tmdb_${tmdbId}`, resolvedImdb);
+                  if (termoLimpo) salvarCacheImdb(`${mediaType}_title_${termoLimpo.toLowerCase()}_${anoStr}`, resolvedImdb);
+                  return resolvedImdb;
+                }
+              }
+            } catch (tmdbDirectErr) {
+              console.warn("[SuperCDN] Falha no lookup direto TMDB ID:", tmdbDirectErr);
+            }
           }
+
+          // 3. BUSCA TEXTUAL NO TMDB (Caso não tenha ID direto ou o external_ids falhou)
+          let urlBusca = isTvShow
+            ? `https://api.themoviedb.org/3/search/tv?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(termoLimpo)}&language=pt-BR&include_adult=false${anoStr ? `&first_air_date_year=${anoStr}` : ''}`
+            : `https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(termoLimpo)}&language=pt-BR&include_adult=false${anoStr ? `&year=${anoStr}` : ''}`;
 
           let res = await fetch(urlBusca);
           let data = await res.json();
           let resultados = data.results || [];
 
-          // Caso a busca estrita com o ano não retorne itens, tenta sem restrição de ano
           if (resultados.length === 0 && anoStr) {
-            console.log(`[SuperCDN] Nenhum resultado com ano ${anoStr}. Buscando de forma abrangente para "${termoLimpo}"...`);
             const fallbackBusca = isTvShow
               ? `https://api.themoviedb.org/3/search/tv?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(termoLimpo)}&language=pt-BR&include_adult=false`
               : `https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(termoLimpo)}&language=pt-BR&include_adult=false`;
@@ -667,7 +808,6 @@
             resultados = fallbackData.results || [];
           }
 
-          // Se ainda assim não encontrou, realiza busca multi-tipo
           if (resultados.length === 0) {
             const multiUrl = `https://api.themoviedb.org/3/search/multi?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(termoLimpo)}&language=pt-BR&include_adult=false`;
             const multiRes = await fetch(multiUrl);
@@ -680,58 +820,45 @@
           }
 
           const midiaEncontrada = resultados[0];
-          const tmdbId = midiaEncontrada.id;
-          const mediaTypeReal = midiaEncontrada.media_type || (isTvShow ? 'tv' : 'movie');
+          tmdbId = midiaEncontrada.id;
+          const mediaTypeReal = midiaEncontrada.media_type || mediaType;
 
-          console.log(`[SuperCDN] Mídia identificada: "${midiaEncontrada.title || midiaEncontrada.name}" (TMDB ID: ${tmdbId}, Tipo: ${mediaTypeReal})`);
-
-          // PASSO 2: Resgate do IMDb ID canônico
           let imdbIdEncontrado = null;
+          const extRes = await fetch(`https://api.themoviedb.org/3/${mediaTypeReal}/${tmdbId}/external_ids?api_key=${TMDB_API_KEY}`);
+          if (extRes.ok) {
+            const extJson = await extRes.json();
+            imdbIdEncontrado = extJson.imdb_id || null;
+          }
 
-          if (mediaTypeReal === 'tv') {
-            const extRes = await fetch(`https://api.themoviedb.org/3/tv/${tmdbId}/external_ids?api_key=${TMDB_API_KEY}`);
-            if (extRes.ok) {
-              const extJson = await extRes.json();
-              imdbIdEncontrado = extJson.imdb_id || null;
-            }
-          } else {
+          if (!imdbIdEncontrado && mediaTypeReal === 'movie') {
             const movieRes = await fetch(`https://api.themoviedb.org/3/movie/${tmdbId}?api_key=${TMDB_API_KEY}`);
             if (movieRes.ok) {
               const movieJson = await movieRes.json();
               imdbIdEncontrado = movieJson.imdb_id || null;
             }
-            if (!imdbIdEncontrado) {
-              const extRes = await fetch(`https://api.themoviedb.org/3/movie/${tmdbId}/external_ids?api_key=${TMDB_API_KEY}`);
-              if (extRes.ok) {
-                const extJson = await extRes.json();
-                imdbIdEncontrado = extJson.imdb_id || null;
-              }
-            }
           }
 
-          // Validação estrita do padrão 'tt...'
           if (imdbIdEncontrado && regexImdbDireto.test(imdbIdEncontrado.trim())) {
             const cleanImdb = imdbIdEncontrado.trim().toLowerCase();
-            console.log("[SuperCDN] IMDb ID canônico obtido:", cleanImdb);
+            salvarCacheImdb(`${mediaTypeReal}_tmdb_${tmdbId}`, cleanImdb);
+            if (termoLimpo) salvarCacheImdb(`${mediaTypeReal}_title_${termoLimpo.toLowerCase()}_${anoStr}`, cleanImdb);
             return cleanImdb;
           }
 
-          // PASSO 3: Contingência OMDb API pública
+          // 4. Contingência OMDb
           try {
             const omdbRes = await fetch(`https://www.omdbapi.com/?t=${encodeURIComponent(termoLimpo)}&${anoStr ? `y=${anoStr}&` : ''}apikey=b7da8d63`);
             if (omdbRes.ok) {
               const omdbJson = await omdbRes.json();
               if (omdbJson && omdbJson.imdbID && regexImdbDireto.test(omdbJson.imdbID)) {
-                console.log("[SuperCDN] IMDb ID obtido via contingência OMDb:", omdbJson.imdbID);
-                return omdbJson.imdbID.toLowerCase();
+                const cleanImdb = omdbJson.imdbID.toLowerCase();
+                salvarCacheImdb(`${mediaType}_title_${termoLimpo.toLowerCase()}_${anoStr}`, cleanImdb);
+                return cleanImdb;
               }
             }
-          } catch (omdbErr) {
-            console.warn("[SuperCDN] OMDb fallback indisponível.");
-          }
+          } catch (_) {}
 
           throw new Error(`O título "${termoLimpo}" foi localizado, mas não possui código IMDb associado.`);
-
         } catch (erro) {
           console.error("[SuperCDN] Erro em obterImdbId:", erro);
           throw erro;
@@ -782,48 +909,139 @@
       // Canal 3 e Dublado/Legendado) diretamente dentro da capa do player.
       // Não requer seletores ou botões externos redundantes.
       // =========================================================================
-      function SuperCDNJSPlugin(type, imdb, season = '', episode = '') {
-        const cleanType = (type === 'tv' || type === 'tvshow') ? 'tvshow' : 'movie';
-        let s = (season !== undefined && season !== null && season !== '') ? String(season).trim() : '';
-        let e = (episode !== undefined && episode !== null && episode !== '') ? String(episode).trim() : '';
-
-        if (cleanType === 'movie') {
-          s = '';
-          e = '';
-        } else {
-          if (s !== '') { s = '/' + s; }
-          if (e !== '') { e = '/' + e; }
+      // =========================================================================
+      // GERENCIADOR DE REPRODUÇÃO MULTI-CANAL NATIVO
+      // -------------------------------------------------------------------------
+      // Conforme especificado pelo usuário:
+      // - Abre diretamente no Canal 1 ao clicar em qualquer filme/série (sem capa intermediária)
+      // - CANAL 1: Reprodução Direta (carrega player pronto sem CAPTCHA ou telas de seleção)
+      // - CANAL 2: Verificação CAPTCHA + Seleção de Servidor (Principal/Alt) e Idioma (Dub/Leg)
+      // - CANAL 3: Verificação CAPTCHA + Reprodução Direta (sem menus de servidores/idiomas)
+      // =========================================================================
+      function selecionarCanal(canalNumero) {
+        if (!currentImdbId) {
+          showToast("Nenhum conteúdo selecionado.", true);
+          return;
         }
 
-        const canonicalUrl = 'https://plenoflu.com/' + cleanType + '/' + imdb + s + e;
-        const proxyUrl = '/api-plenoflu/' + cleanType + '/' + imdb + s + e;
+        canalAtivo = canalNumero;
 
-        // Suporta tanto o ambiente com proxy da Vercel / local quanto acesso canônico
-        const isProxySupported = window.location.hostname.includes('localhost') || 
-                                window.location.hostname.includes('127.0.0.1') || 
-                                window.location.hostname.includes('run.app') || 
-                                window.location.hostname.includes('vercel.app');
+        // Atualiza estado visual dos 3 botões de canais
+        for (let i = 1; i <= 3; i++) {
+          const btn = document.getElementById(`btn-canal-${i}`);
+          if (btn) {
+            if (i === canalNumero) {
+              btn.className = "px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 bg-[#E50914] text-white shadow-md shadow-[#E50914]/30 ring-1 ring-[#E50914]";
+            } else {
+              btn.className = "px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 bg-[#1a1a1a] hover:bg-[#262626] text-neutral-300 border border-[#2a2a2a]";
+            }
+          }
+        }
 
-        const streamUrl = isProxySupported ? proxyUrl : canonicalUrl;
+        const isTv = currentMediaType === 'tvshow' || currentMediaType === 'tv';
+        const s = currentSeason || 1;
+        const ep = currentEpisode || 1;
+
+        let streamUrl = '';
+        let badgeLabel = '';
+        let audioLabel = '';
+        let toastMsg = '';
+        let hintMsg = '';
+
+        if (canalNumero === 1) {
+          // CANAL 1: Reprodução direta sem CAPTCHA e sem opções de servidores
+          badgeLabel = 'CANAL 1 (REPRODUÇÃO DIRETA)';
+          audioLabel = '🔊 PLAYER DIRETO MULTILÍNGUE';
+          toastMsg = 'Canal 1: Reprodução Direta';
+          hintMsg = '• Canal 1: Reprodução direta instantânea';
+          streamUrl = isTv
+            ? `https://vidsrc.pm/embed/tv/${currentImdbId}/${s}/${ep}`
+            : `https://vidsrc.pm/embed/movie/${currentImdbId}`;
+
+        } else if (canalNumero === 2) {
+          // CANAL 2: Verificação CAPTCHA + Servidores + Idiomas (Dublado / Legendado)
+          badgeLabel = 'CANAL 2 (VERIFICAÇÃO & SERVIDORES)';
+          audioLabel = '🇧🇷 DUBLADO / LEGENDADO (SUPERFLIX)';
+          toastMsg = 'Canal 2: Verificação e Servidores';
+          hintMsg = '• Canal 2: Verificação CAPTCHA + Servidores e Idiomas';
+          streamUrl = isTv
+            ? `https://superflixapi.fun/serie/${currentImdbId}/${s}/${ep}`
+            : `https://superflixapi.fun/filme/${currentImdbId}#noEpList`;
+
+        } else if (canalNumero === 3) {
+          // CANAL 3: Verificação CAPTCHA + Reprodução direta sem menus do Canal 2
+          badgeLabel = 'CANAL 3 (VERIFICAÇÃO & DIRETO)';
+          audioLabel = '⚡ PLAYER RÁPIDO VERIFICADO';
+          toastMsg = 'Canal 3: Verificação e Reprodução Direta';
+          hintMsg = '• Canal 3: Validação de segurança com reprodução direta';
+          if (!isTv && currentTmdbId) {
+            streamUrl = `https://streambetter.lol/filme/${currentTmdbId}?key=sb_pk_49d645d49ff1a48b6bba90db256a9ea5c308fd26acabb415`;
+          } else if (isTv) {
+            streamUrl = `https://vidsrc.pm/embed/tv/${currentImdbId}/${s}/${ep}`;
+          } else {
+            streamUrl = `https://www.2embed.cc/embed/${currentImdbId}`;
+          }
+        }
+
         currentEmbedUrl = streamUrl;
+
+        const channelBadge = document.getElementById('modal-channel-badge');
+        if (channelBadge) channelBadge.innerText = badgeLabel;
+
+        const audioTag = document.getElementById('modal-audio-tag');
+        if (audioTag) audioTag.innerText = audioLabel;
+
+        const hintEl = document.getElementById('channel-desc-hint');
+        if (hintEl) hintEl.innerText = hintMsg;
 
         const endpointLabel = document.getElementById('modal-endpoint-label');
         if (endpointLabel) {
-          endpointLabel.innerText = canonicalUrl;
-          endpointLabel.title = canonicalUrl;
+          try {
+            const host = new URL(streamUrl).hostname;
+            endpointLabel.innerText = host;
+            endpointLabel.title = streamUrl;
+          } catch (_) {
+            endpointLabel.innerText = streamUrl;
+          }
         }
 
-        const channelBadge = document.getElementById('modal-channel-badge');
-        if (channelBadge) {
-          channelBadge.innerText = 'SUPERCDN OFICIAL';
-        }
-
+        // Injeta o player com isolamento Sandbox rigoroso (Anti-anúncios, anti-popups)
         const frame = document.getElementById('SuperCDNContainerVideo') || document.getElementById('iframe-mount-point');
         if (frame) {
-          // Limpa qualquer conteúdo anterior e injeta o iframe oficial com as diretrizes
-          frame.innerHTML = '<iframe src="' + streamUrl + '" width="100%" height="100%" scrolling="no" frameborder="0" allowfullscreen="" webkitallowfullscreen="" mozallowfullscreen="" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" referrerpolicy="strict-origin-when-cross-origin" class="w-full h-full border-0"></iframe>';
+          // BLOQUEIO TOTAL DE ANÚNCIOS E POP-UPS EM INTERAÇÕES (PLAY, ADIANTAR, PAUSE):
+          // Removidos 'allow-popups', 'allow-popups-to-escape-sandbox' e 'allow-top-navigation'.
+          // Qualquer clique do usuário (play, barra de progresso, adiantar) que acionaria abas ou pop-ups
+          // é sumariamente bloqueado pelo motor do navegador.
+          // 'allow-scripts': executa player e controles
+          // 'allow-same-origin': permite buffers de vídeo HLS e cookies legítimos
+          // 'allow-forms': permite submissão de verificação Turnstile nos canais 2 e 3
+          // 'allow-presentation': permite alternar para tela cheia
+          frame.innerHTML = `<iframe 
+            src="${streamUrl}" 
+            sandbox="allow-scripts allow-same-origin allow-forms allow-presentation" 
+            referrerpolicy="no-referrer" 
+            allow="autoplay; encrypted-media; fullscreen; picture-in-picture" 
+            scrolling="no" 
+            frameborder="0" 
+            allowfullscreen 
+            webkitallowfullscreen 
+            mozallowfullscreen 
+            class="w-full h-full border-0 rounded-lg"></iframe>`;
+
+          // Acelera a remoção do loader assim que o frame emitir evento load
+          const iframeEl = frame.querySelector('iframe');
+          if (iframeEl) {
+            iframeEl.onload = () => {
+              const loaderOverlay = document.getElementById('loader-overlay');
+              if (loaderOverlay && !loaderOverlay.classList.contains('hidden')) {
+                loaderOverlay.classList.add('opacity-0', 'pointer-events-none');
+                setTimeout(() => loaderOverlay.classList.add('hidden'), 120);
+              }
+            };
+          }
         }
 
+        showToast(toastMsg);
         return streamUrl;
       }
 
@@ -840,9 +1058,10 @@
       }
 
       /**
-       * 4. FLUXO PRINCIPAL: INICIA REPRODUÇÃO SOB DEMANDA (SuperCDN)
+       * 4. FLUXO PRINCIPAL: INICIA REPRODUÇÃO SOB DEMANDA COM ULTRA VELOCIDADE
        * 
        * Executado ao clicar em qualquer filme ou episódio do catálogo.
+       * Abre DIRETAMENTE no Canal 1, conforme exigência do usuário.
        * 
        * @param {object} movie Objeto do filme/série com metadados
        * @param {number} season Temporada (se série)
@@ -857,15 +1076,17 @@
           currentMediaType = mediaType;
           currentSeason = parseInt(season, 10) || 1;
           currentEpisode = parseInt(episode, 10) || 1;
+          const tmdbId = movie.id || movie.tmdb_id || "";
+          currentTmdbId = tmdbId;
 
-          // Etapa 1: Obtenção do IMDb ID canônico
+          // Etapa 1: Obtenção do IMDb ID canônico (instantâneo se em cache ou via TMDB ID direto)
           updateModalProgress(
-            'Localizando IMDb ID Oficial...',
-            `Consultando metadados no TMDB para "${movie.title || movie.name}"...`,
-            40
+            'Iniciando Reprodução Acelerada...',
+            `Conectando transmissão direta para "${movie.title || movie.name}"...`,
+            50
           );
 
-          const imdbId = await obterImdbId(movie.title || movie.name, movie.year, mediaType);
+          const imdbId = await obterImdbId(movie.title || movie.name, movie.year, mediaType, tmdbId);
           currentImdbId = imdbId;
 
           // Atualiza tags visuais no modal
@@ -897,18 +1118,20 @@
             }
           }
 
-          // Inicia a reprodução nativa utilizando o Plugin Oficial SuperCDN
+          // Inicia DIRETAMENTE NO CANAL 1 (sem capa intermediária)
           updateModalProgress(
-            'Iniciando SuperCDN Oficial...',
-            `Carregando estrutura nativa de reprodução para ${imdbId}...`,
-            85
+            'Iniciando Canal 1...',
+            `Carregando reprodução direta para ${imdbId}...`,
+            90
           );
 
-          SuperCDNJSPlugin(mediaType, imdbId, currentSeason, currentEpisode);
+          canalAtivo = 1;
+          selecionarCanal(1);
 
           // Salva no histórico de reprodução
           saveWatchHistory({
             imdbId: imdbId,
+            tmdbId: tmdbId,
             title: movie.title || movie.name,
             year: movie.year,
             poster: movie.poster,
@@ -918,20 +1141,20 @@
             timestamp: Date.now()
           });
 
-          // Finaliza e oculta a camada de carregamento
-          setTimeout(() => {
-            const loaderOverlay = document.getElementById('loader-overlay');
-            if (loaderOverlay) {
+          // Finaliza e oculta a camada de carregamento rapidamente (com transição suave)
+          const loaderOverlay = document.getElementById('loader-overlay');
+          if (loaderOverlay) {
+            setTimeout(() => {
               loaderOverlay.classList.add('opacity-0', 'pointer-events-none');
-              setTimeout(() => loaderOverlay.classList.add('hidden'), 350);
-            }
-          }, 450);
+              setTimeout(() => loaderOverlay.classList.add('hidden'), 150);
+            }, 200);
+          }
 
         } catch (err) {
-          console.error('[SuperCDN] Falha no fluxo:', err);
+          console.error('[StreamFlix] Falha no fluxo:', err);
           updateModalProgress(
             'Falha ao Carregar Transmissão',
-            `${err.message || 'Não foi possível gerar o embed do SuperCDN.'}`,
+            `${err.message || 'Não foi possível carregar a transmissão.'}`,
             100,
             true
           );
@@ -956,7 +1179,7 @@
         currentSeason = season;
         currentEpisode = episode;
 
-        SuperCDNJSPlugin('tvshow', currentImdbId, season, episode);
+        selecionarCanal(canalAtivo);
         showToast(`Carregando Temporada ${season}, Episódio ${episode}...`);
 
         saveWatchHistory({
@@ -1178,6 +1401,8 @@
             ? `T${item.season}:E${item.episode}` 
             : (isTv ? 'SÉRIE' : 'FILME');
           const safePayload = JSON.stringify({
+            id: item.tmdbId || item.id,
+            imdbId: item.imdbId,
             title: item.title,
             year: item.year,
             media_type: item.tipo,
