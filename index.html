@@ -966,17 +966,9 @@
           audioLabel = '🇧🇷 DUBLADO / ORIGINAL';
           toastMsg = 'Canal 1: SuperCDN Oficial';
           hintMsg = '• Canal 1: Reprodução oficial SuperCDN (Pobre Play)';
-          const isProxy = typeof window !== 'undefined' && (
-            window.location.hostname.includes('localhost') || 
-            window.location.hostname.includes('127.0.0.1') || 
-            window.location.hostname.includes('run.app') || 
-            window.location.hostname.includes('vercel.app')
-          );
           const cleanType = isTv ? 'tvshow' : 'movie';
           const sPath = isTv ? `/${s}/${ep}` : '';
-          streamUrl = isProxy
-            ? `/api-plenoflu/${cleanType}/${currentImdbId}${sPath}`
-            : `https://plenoflu.com/${cleanType}/${currentImdbId}${sPath}`;
+          streamUrl = `/api-plenoflu/${cleanType}/${currentImdbId}${sPath}`;
 
         } else if (canalNumero === 2) {
           // CANAL 2: Verificação CAPTCHA + Servidores + Idiomas (Dublado / Legendado)

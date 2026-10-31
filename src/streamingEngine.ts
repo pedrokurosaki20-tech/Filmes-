@@ -210,17 +210,7 @@ export function SuperCDNJSPlugin(
     if (e !== '') { e = '/' + e; }
   }
 
-  const canonicalUrl = 'https://plenoflu.com/' + cleanType + '/' + imdb + s + e;
-  const proxyUrl = '/api-plenoflu/' + cleanType + '/' + imdb + s + e;
-
-  const isProxySupported = typeof window !== 'undefined' && (
-    window.location.hostname.includes('localhost') || 
-    window.location.hostname.includes('127.0.0.1') || 
-    window.location.hostname.includes('run.app') || 
-    window.location.hostname.includes('vercel.app')
-  );
-
-  const streamUrl = isProxySupported ? proxyUrl : canonicalUrl;
+  const streamUrl = '/api-plenoflu/' + cleanType + '/' + imdb + s + e;
 
   if (typeof document !== 'undefined') {
     const frame = document.getElementById('SuperCDNContainerVideo') || document.getElementById('iframe-mount-point');
@@ -276,16 +266,7 @@ export function renderizarPlayerSuperCDN(
     if (e !== '') { e = '/' + e; }
   }
 
-  const isProxySupported = typeof window !== 'undefined' && (
-    window.location.hostname.includes('localhost') || 
-    window.location.hostname.includes('127.0.0.1') || 
-    window.location.hostname.includes('run.app') || 
-    window.location.hostname.includes('vercel.app')
-  );
-
-  const streamUrl = isProxySupported
-    ? '/api-plenoflu/' + cleanType + '/' + imdbId + s + e
-    : 'https://plenoflu.com/' + cleanType + '/' + imdbId + s + e;
+  const streamUrl = '/api-plenoflu/' + cleanType + '/' + imdbId + s + e;
 
   return '<iframe src="' + streamUrl + '" width="100%" height="100%" scrolling="no" frameborder="0" allowfullscreen="" webkitallowfullscreen="" mozallowfullscreen="" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" referrerpolicy="no-referrer" class="w-full h-full border-0"></iframe>';
 }
@@ -309,18 +290,9 @@ export function obterUrlCanalPlayer(
 
   if (canalNumero === 1) {
     // CANAL 1 — Reprodução direta (Plenoflu oficial)
-    const sPath = isTv ? `/${s}` : '';
-    const epPath = isTv ? `/${ep}` : '';
+    const sPath = isTv ? `/${s}/${ep}` : '';
     const cleanType = isTv ? 'tvshow' : 'movie';
-    const isProxy = typeof window !== 'undefined' && (
-      window.location.hostname.includes('localhost') || 
-      window.location.hostname.includes('127.0.0.1') || 
-      window.location.hostname.includes('run.app') || 
-      window.location.hostname.includes('vercel.app')
-    );
-    return isProxy
-      ? `/api-plenoflu/${cleanType}/${imdbId}${sPath}${epPath}`
-      : `https://plenoflu.com/${cleanType}/${imdbId}${sPath}${epPath}`;
+    return `/api-plenoflu/${cleanType}/${imdbId}${sPath}`;
   }
 
   if (canalNumero === 2) {

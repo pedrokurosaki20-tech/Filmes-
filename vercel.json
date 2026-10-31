@@ -3,6 +3,10 @@
     {
       "source": "/api-plenoflu/(.*)",
       "destination": "/api/player?path=$1"
+    },
+    {
+      "source": "/player/(.*)",
+      "destination": "/api/player?path=player/$1"
     }
   ]
 }
