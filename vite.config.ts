@@ -26,6 +26,33 @@ function cleanAndEnhancePlayerHtml(rawHtml: string): string {
           }
         }
       });
+
+      // Monitor de erros do JWPlayer para comunicação com o aplicativo principal
+      window.addEventListener('load', function() {
+        var checkJwInterval = setInterval(function() {
+          if (typeof jwplayer === 'function') {
+            try {
+              var p = jwplayer('player');
+              if (p && typeof p.on === 'function') {
+                clearInterval(checkJwInterval);
+                p.on('error', function(e) {
+                  console.warn('[Player JW Error]', e);
+                  try {
+                    window.parent.postMessage({ type: 'PLAYER_STREAM_ERROR', message: e.message || 'Erro no player' }, '*');
+                  } catch(_) {}
+                });
+                p.on('setupError', function(e) {
+                  console.warn('[Player Setup Error]', e);
+                  try {
+                    window.parent.postMessage({ type: 'PLAYER_STREAM_ERROR', message: e.message || 'Erro de setup' }, '*');
+                  } catch(_) {}
+                });
+              }
+            } catch(_) {}
+          }
+        }, 300);
+        setTimeout(function() { clearInterval(checkJwInterval); }, 8000);
+      });
     })();
   </script>
   `;
@@ -39,6 +66,26 @@ function cleanAndEnhancePlayerHtml(rawHtml: string): string {
     .rek_counter,
     .dropdown,
     #QualityText {
+      display: none !important;
+      opacity: 0 !important;
+      visibility: hidden !important;
+      pointer-events: none !important;
+      width: 0 !important;
+      height: 0 !important;
+    }
+
+    .players_select_container,
+    .player_select_header,
+    .select_languages,
+    .languages_selector,
+    .select_language,
+    .players_select,
+    .player_select_item,
+    .player_bg,
+    .player_bg_container,
+    .changeOptions,
+    .embedder_info,
+    .without_players_warning {
       display: none !important;
       opacity: 0 !important;
       visibility: hidden !important;
@@ -82,7 +129,7 @@ function plenofluDevPlugin() {
   return {
     name: 'plenoflu-dev-plugin',
     configureServer(server: any) {
-      // Middleware dedicado para rotear requisições internas do player (/player/index.php e assets)
+      // Middleware dedicado para rotear requisições internas do player (/player/index.php, /player/m3u8, /player/seg e assets)
       server.middlewares.use('/player', async (req: any, res: any) => {
         res.setHeader('Access-Control-Allow-Origin', '*');
         res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -96,6 +143,83 @@ function plenofluDevPlugin() {
         }
 
         const rawUrl = req.url || '';
+        const urlObj = new URL(rawUrl, 'http://localhost');
+
+        // 1. Rota de Manifesto HLS (/player/m3u8?url=...)
+        if (urlObj.pathname === '/m3u8' || urlObj.pathname.startsWith('/m3u8')) {
+          const rawTargetUrl = urlObj.searchParams.get('url');
+          if (!rawTargetUrl) {
+            res.writeHead(400, { 'Content-Type': 'text/plain' });
+            return res.end('Missing url param for m3u8');
+          }
+          const targetUrl = decodeURIComponent(rawTargetUrl);
+          try {
+            const mRes = await fetch(targetUrl, {
+              headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+                'Referer': 'https://vaiquecol.com/',
+                'Origin': 'https://vaiquecol.com'
+              }
+            });
+            let m3u8Text = await mRes.text();
+
+            // Reescreve URLs internas do manifesto para o proxy same-origin
+            const rewrittenM3u8 = m3u8Text.replace(/(https:\/\/[^\s"\r\n]+)/g, (matchedUrl) => {
+              if (matchedUrl.includes('.m3u8') || matchedUrl.includes('/m3/') || matchedUrl.includes('/hls/') || matchedUrl.includes('master.txt')) {
+                return `/player/m3u8?url=${encodeURIComponent(matchedUrl)}`;
+              }
+              return `/player/seg?url=${encodeURIComponent(matchedUrl)}`;
+            });
+
+            res.writeHead(200, {
+              'Content-Type': 'application/vnd.apple.mpegurl; charset=utf-8',
+              'Access-Control-Allow-Origin': '*',
+              'Cache-Control': 'no-cache'
+            });
+            return res.end(rewrittenM3u8);
+          } catch (mErr: any) {
+            res.writeHead(500, { 'Content-Type': 'text/plain' });
+            return res.end(`M3U8 Proxy Error: ${mErr.message}`);
+          }
+        }
+
+        // 2. Rota de Segmentos de Áudio e Vídeo TS (/player/seg?url=...)
+        if (urlObj.pathname === '/seg' || urlObj.pathname.startsWith('/seg')) {
+          const rawTargetUrl = urlObj.searchParams.get('url');
+          if (!rawTargetUrl) {
+            res.writeHead(400, { 'Content-Type': 'text/plain' });
+            return res.end('Missing url param for segment');
+          }
+          const targetUrl = decodeURIComponent(rawTargetUrl);
+          try {
+            const sRes = await fetch(targetUrl, {
+              headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+                'Referer': 'https://vaiquecol.com/'
+              }
+            });
+            let contentType = sRes.headers.get('content-type') || 'video/mp2t';
+            if (targetUrl.includes('/Video/') || targetUrl.includes('/480p') || targetUrl.includes('/720p') || targetUrl.includes('/1080p') || targetUrl.endsWith('.ts') || targetUrl.endsWith('.html') || targetUrl.endsWith('.js')) {
+              contentType = 'video/mp2t';
+            } else if (targetUrl.includes('subtitle') || targetUrl.endsWith('.vtt')) {
+              contentType = 'text/vtt; charset=utf-8';
+            } else if (targetUrl.includes('/Audio/')) {
+              contentType = 'audio/mp4';
+            }
+            res.writeHead(200, {
+              'Content-Type': contentType,
+              'Access-Control-Allow-Origin': '*',
+              'Cache-Control': 'public, max-age=86400'
+            });
+            const buffer = Buffer.from(await sRes.arrayBuffer());
+            return res.end(buffer);
+          } catch (sErr: any) {
+            res.writeHead(500, { 'Content-Type': 'text/plain' });
+            return res.end(`Segment Proxy Error: ${sErr.message}`);
+          }
+        }
+
+        // 3. Chamadas para o backend do player (/player/index.php ou assets)
         const targetUrl = `https://vaiquecol.com/player${rawUrl}`;
 
         try {
@@ -123,6 +247,26 @@ function plenofluDevPlugin() {
 
           const response = await fetch(targetUrl, fetchOptions);
           const contentType = response.headers.get('content-type') || 'application/json';
+
+          // Se for a resposta de vídeo do player, reescreve fontes para o proxy HLS
+          if (rawUrl.includes('index.php') && rawUrl.includes('getVideo')) {
+            try {
+              const json: any = await response.json();
+              if (json && (json.videoSource || json.securedLink)) {
+                if (json.videoSource) {
+                  json.videoSource = `/player/m3u8?url=${encodeURIComponent(json.videoSource)}`;
+                }
+                if (json.securedLink) {
+                  json.securedLink = `/player/m3u8?url=${encodeURIComponent(json.securedLink)}`;
+                }
+              }
+              res.writeHead(response.status, {
+                'Content-Type': 'application/json; charset=utf-8',
+                'Access-Control-Allow-Origin': '*'
+              });
+              return res.end(JSON.stringify(json));
+            } catch (_) {}
+          }
 
           res.writeHead(response.status, {
             'Content-Type': contentType,
@@ -274,6 +418,18 @@ function plenofluDevPlugin() {
           html = html.replace(/devtoolsDetector/g, 'noopDevtools');
           html = html.replace(/var HOME_URL\s*=\s*['"]https:\/\/plenoflu\.com['"]/g, 'var HOME_URL = "/api-plenoflu"');
 
+          // Se a página já for o player direto
+          if (html.includes('vaiquecol.com') || html.includes('FirePlayer')) {
+            html = cleanAndEnhancePlayerHtml(html);
+            playerDevCache.set(cacheKey, { contentType: 'text/html; charset=utf-8', data: html });
+            setTimeout(() => playerDevCache.delete(cacheKey), 30 * 60 * 1000);
+            res.writeHead(200, {
+              'Content-Type': 'text/html; charset=utf-8',
+              'Access-Control-Allow-Origin': '*'
+            });
+            return res.end(html);
+          }
+
           // Aceleração máxima: Tenta resolver o player direto do Plenoflu no servidor (zero delay no navegador)
           const matchItem = html.match(/class="player_select_item"\s+data-id="(\d+)"/) || html.match(/data-id="(\d+)"/);
           if (matchItem && matchItem[1]) {
@@ -293,7 +449,6 @@ function plenofluDevPlugin() {
                 const rawVideoUrl = Buffer.from(apiJson.data.video_url, 'base64').toString('utf-8');
 
                 if (rawVideoUrl.includes('vaiquecol.com')) {
-                  // Busca o HTML do player no servidor e entrega diretamente (zero iframes aninhados e carregamento instantâneo)
                   const vaiqRes = await fetch(rawVideoUrl, {
                     headers: {
                       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
@@ -304,7 +459,6 @@ function plenofluDevPlugin() {
                   let directHtml = await vaiqRes.text();
                   directHtml = cleanAndEnhancePlayerHtml(directHtml);
 
-                  // Salva em cache
                   playerDevCache.set(cacheKey, { contentType: 'text/html; charset=utf-8', data: directHtml });
                   setTimeout(() => playerDevCache.delete(cacheKey), 30 * 60 * 1000);
 
@@ -343,94 +497,7 @@ function plenofluDevPlugin() {
             }
           }
 
-          // Fallback / Séries: Oculta totalmente qualquer cabeçalho, capa e menu do Plenoflu desde o 1º frame
-          const styles = `
-          <style>
-            .players_select_container,
-            .player_select_header,
-            .select_languages,
-            .languages_selector,
-            .select_language,
-            .players_select,
-            .player_select_item,
-            .player_bg,
-            .player_bg_container,
-            .changeOptions,
-            .embedder_info,
-            .without_players_warning {
-              display: none !important;
-              opacity: 0 !important;
-              visibility: hidden !important;
-              pointer-events: none !important;
-              position: absolute !important;
-              top: -9999px !important;
-              left: -9999px !important;
-              width: 0 !important;
-              height: 0 !important;
-            }
-            .player_container {
-              position: fixed !important;
-              inset: 0 !important;
-              width: 100vw !important;
-              height: 100vh !important;
-              background: #000 !important;
-              z-index: 999999 !important;
-              display: block !important;
-            }
-            .player_container .infra,
-            .player_container .infra iframe {
-              width: 100% !important;
-              height: 100% !important;
-              border: 0 !important;
-              display: block !important;
-            }
-          </style>
-          `;
-
-          const autoPlayScript = `
-          <script>
-            (function() {
-              var clicked = false;
-              function triggerAutoPlay() {
-                if (clicked) return true;
-                var el = document.querySelector('.player_select_item');
-                if (el && typeof $ !== 'undefined') {
-                  clicked = true;
-                  $(el).trigger('click');
-                  return true;
-                }
-                return false;
-              }
-              triggerAutoPlay();
-              if (typeof MutationObserver !== 'undefined') {
-                var observer = new MutationObserver(function() {
-                  if (triggerAutoPlay()) {
-                    observer.disconnect();
-                  }
-                });
-                observer.observe(document.documentElement, { childList: true, subtree: true });
-              }
-              var pollInterval = setInterval(function() {
-                if (triggerAutoPlay()) {
-                  clearInterval(pollInterval);
-                }
-              }, 10);
-              setTimeout(function() { clearInterval(pollInterval); }, 6000);
-            })();
-          </script>
-          `;
-
-          if (html.includes('</head>')) {
-            html = html.replace('</head>', `${styles}</head>`);
-          } else {
-            html = styles + html;
-          }
-
-          if (html.includes('</body>')) {
-            html = html.replace('</body>', `${autoPlayScript}</body>`);
-          } else {
-            html = html + autoPlayScript;
-          }
+          html = cleanAndEnhancePlayerHtml(html);
 
           res.writeHead(response.status, {
             'Content-Type': contentType,

@@ -4,7 +4,7 @@ export const config = {
   },
 };
 
-// Cache em memória para acelerar instantaneamente (0ms) requisições subsequentes
+// Cache em memória para aceleração instantânea (0ms)
 const playerCache = new Map();
 
 // Utilitário para ler o stream bruto da requisição no ambiente Vercel
@@ -17,7 +17,7 @@ async function getRawBody(req) {
 }
 
 export default async function handler(req, res) {
-  // Headers globais de permissão, CORS e remoção de travas de iframe
+  // Headers globais de permissão, CORS e remoção de restrições de iframe
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', '*');
@@ -29,13 +29,83 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
-  const queryPath = (req.query.path || req.query.url || '').toString();
+  // Extrai query string preservada sem o parâmetro interno 'path'
+  const urlObj = new URL(req.url, 'http://localhost');
+  const pathParam = urlObj.searchParams.get('path') || '';
+  urlObj.searchParams.delete('path');
+  const queryStr = urlObj.searchParams.toString();
+
+  const queryPath = (pathParam || req.query.path || '').toString();
   const method = req.method;
 
-  // 1. Roteamento de chamadas internas do player (/player/index.php e assets do vaiquecol)
-  if (queryPath.startsWith('player/') || queryPath === 'player' || (req.url && req.url.includes('/player/'))) {
+  // 1. ROTEAMENTO DE MANIFESTO HLS (/player/m3u8?url=...)
+  if (queryPath === 'player/m3u8' || queryPath === 'm3u8' || req.url.includes('/player/m3u8')) {
+    const rawTargetUrl = urlObj.searchParams.get('url') || req.query.url;
+    if (!rawTargetUrl) {
+      return res.status(400).send('Missing url param for m3u8');
+    }
+    const targetUrl = decodeURIComponent(rawTargetUrl);
+    try {
+      const mRes = await fetch(targetUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+          'Referer': 'https://vaiquecol.com/',
+          'Origin': 'https://vaiquecol.com'
+        }
+      });
+      let m3u8Text = await mRes.text();
+
+      // Reescreve URLs internas do manifesto
+      const rewrittenM3u8 = m3u8Text.replace(/(https:\/\/[^\s"\r\n]+)/g, (matchedUrl) => {
+        if (matchedUrl.includes('.m3u8') || matchedUrl.includes('/m3/') || matchedUrl.includes('/hls/') || matchedUrl.includes('master.txt')) {
+          return `/player/m3u8?url=${encodeURIComponent(matchedUrl)}`;
+        }
+        return `/player/seg?url=${encodeURIComponent(matchedUrl)}`;
+      });
+
+      res.setHeader('Content-Type', 'application/vnd.apple.mpegurl; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-cache');
+      return res.status(200).send(rewrittenM3u8);
+    } catch (mErr) {
+      return res.status(500).send(`M3U8 Proxy Error: ${mErr.message}`);
+    }
+  }
+
+  // 2. ROTEAMENTO DE SEGMENTOS DE VÍDEO E ÁUDIO TS (/player/seg?url=...)
+  if (queryPath === 'player/seg' || queryPath === 'seg' || req.url.includes('/player/seg')) {
+    const rawTargetUrl = urlObj.searchParams.get('url') || req.query.url;
+    if (!rawTargetUrl) {
+      return res.status(400).send('Missing url param for segment');
+    }
+    const targetUrl = decodeURIComponent(rawTargetUrl);
+    try {
+      const sRes = await fetch(targetUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+          'Referer': 'https://vaiquecol.com/'
+        }
+      });
+      let contentType = sRes.headers.get('content-type') || 'video/mp2t';
+      if (targetUrl.includes('/Video/') || targetUrl.includes('/480p') || targetUrl.includes('/720p') || targetUrl.includes('/1080p') || targetUrl.endsWith('.ts') || targetUrl.endsWith('.html') || targetUrl.endsWith('.js')) {
+        contentType = 'video/mp2t';
+      } else if (targetUrl.includes('subtitle') || targetUrl.endsWith('.vtt')) {
+        contentType = 'text/vtt; charset=utf-8';
+      } else if (targetUrl.includes('/Audio/')) {
+        contentType = 'audio/mp4';
+      }
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+      const buffer = Buffer.from(await sRes.arrayBuffer());
+      return res.status(200).send(buffer);
+    } catch (sErr) {
+      return res.status(500).send(`Segment Proxy Error: ${sErr.message}`);
+    }
+  }
+
+  // 3. ROTEAMENTO DE CHAMADAS INTERNAS DO PLAYER (/player/index.php e assets)
+  if (queryPath.startsWith('player/') || queryPath === 'player' || req.url.includes('/player/')) {
     const playerSubPath = queryPath.replace(/^player\/?/, '');
-    const playerTarget = `https://vaiquecol.com/player/${playerSubPath}`;
+    const playerTarget = `https://vaiquecol.com/player/${playerSubPath}${queryStr ? '?' + queryStr : ''}`;
     try {
       const fetchHeaders = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
@@ -54,6 +124,24 @@ export default async function handler(req, res) {
       }
       const pRes = await fetch(playerTarget, fetchOptions);
       const pContentType = pRes.headers.get('content-type') || 'application/json';
+
+      // Se for a resposta de vídeo do player, reescreve as fontes para nosso proxy HLS (evita CORS e Erro 233011)
+      if (playerSubPath.includes('index.php') && (queryStr.includes('getVideo') || (req.url && req.url.includes('getVideo')))) {
+        try {
+          const json = await pRes.json();
+          if (json && (json.videoSource || json.securedLink)) {
+            if (json.videoSource) {
+              json.videoSource = `/player/m3u8?url=${encodeURIComponent(json.videoSource)}`;
+            }
+            if (json.securedLink) {
+              json.securedLink = `/player/m3u8?url=${encodeURIComponent(json.securedLink)}`;
+            }
+          }
+          res.setHeader('Content-Type', 'application/json; charset=utf-8');
+          return res.status(pRes.status).json(json);
+        } catch (_) {}
+      }
+
       res.setHeader('Content-Type', pContentType);
       const buffer = Buffer.from(await pRes.arrayBuffer());
       return res.status(pRes.status).send(buffer);
@@ -62,7 +150,7 @@ export default async function handler(req, res) {
     }
   }
 
-  // 2. Roteamento de páginas proxied do vaiquecol
+  // 4. ROTEAMENTO DE PÁGINAS PROXIED DO VAIQUECOL
   if (queryPath.startsWith('proxy-vaiquecol')) {
     const targetUrl = req.query.url ? decodeURIComponent(req.query.url) : 'https://vaiquecol.com';
     try {
@@ -82,7 +170,7 @@ export default async function handler(req, res) {
     }
   }
 
-  // 3. Roteamento principal do Plenoflu (SuperCDN Oficial)
+  // 5. ROTEAMENTO PRINCIPAL DO PLENOFLU (SUPERCDN OFICIAL)
   let targetUrl = 'https://plenoflu.com';
   const isApiRoute = queryPath === 'api' || queryPath === '/api' || (req.url && req.url.includes('path=api'));
 
@@ -139,11 +227,20 @@ export default async function handler(req, res) {
 
     let html = await response.text();
 
-    // Desativa detector de devtools
+    // Desativa detector de devtools e ajusta referências
     html = html.replace(/devtoolsDetector/g, 'noopDevtools');
     html = html.replace(/var HOME_URL\s*=\s*['"]https:\/\/plenoflu\.com['"]/g, 'var HOME_URL = "/api-plenoflu"');
 
-    // Resolução direta do player no servidor (Aceleração máxima sem iframes aninhados)
+    // Se o HTML já for o player direto do vaiquecol / pobre play
+    if (html.includes('vaiquecol.com') || html.includes('FirePlayer')) {
+      html = cleanAndEnhancePlayerHtml(html);
+      playerCache.set(cacheKey, { contentType: 'text/html; charset=utf-8', data: html });
+      setTimeout(() => playerCache.delete(cacheKey), 30 * 60 * 1000);
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      return res.status(200).send(html);
+    }
+
+    // Resolução direta do player no servidor (caso haja menu .player_select_item)
     const matchItem = html.match(/class="player_select_item"\s+data-id="(\d+)"/) || html.match(/data-id="(\d+)"/);
     if (matchItem && matchItem[1]) {
       try {
@@ -162,7 +259,6 @@ export default async function handler(req, res) {
           const rawVideoUrl = Buffer.from(apiJson.data.video_url, 'base64').toString('utf-8');
 
           if (rawVideoUrl.includes('vaiquecol.com')) {
-            // Busca o HTML real do player no servidor e o serve diretamente (zero delays e zero iframes extras)
             const vaiqRes = await fetch(rawVideoUrl, {
               headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
@@ -173,14 +269,12 @@ export default async function handler(req, res) {
             let directHtml = await vaiqRes.text();
             directHtml = cleanAndEnhancePlayerHtml(directHtml);
 
-            // Salva no cache por 30 minutos
             playerCache.set(cacheKey, { contentType: 'text/html; charset=utf-8', data: directHtml });
             setTimeout(() => playerCache.delete(cacheKey), 30 * 60 * 1000);
 
             res.setHeader('Content-Type', 'text/html; charset=utf-8');
             return res.status(200).send(directHtml);
           } else {
-            // Outro player embed direto
             const cleanEmbedPage = `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -203,110 +297,22 @@ export default async function handler(req, res) {
           }
         }
       } catch (resolveErr) {
-        // Fallback continua abaixo
+        // Fallback continua
       }
     }
 
-    // Fallback para Séries com injeção de CSS restritivo e auto-play instantâneo
-    const fallbackStyles = `
-    <style>
-      .players_select_container,
-      .player_select_header,
-      .select_languages,
-      .languages_selector,
-      .select_language,
-      .players_select,
-      .player_select_item,
-      .player_bg,
-      .player_bg_container,
-      .changeOptions,
-      .embedder_info,
-      .without_players_warning {
-        display: none !important;
-        opacity: 0 !important;
-        visibility: hidden !important;
-        pointer-events: none !important;
-        position: absolute !important;
-        top: -9999px !important;
-        left: -9999px !important;
-        width: 0 !important;
-        height: 0 !important;
-      }
-      .player_container {
-        position: fixed !important;
-        inset: 0 !important;
-        width: 100vw !important;
-        height: 100vh !important;
-        background: #000 !important;
-        z-index: 999999 !important;
-        display: block !important;
-      }
-      .player_container .infra,
-      .player_container .infra iframe {
-        width: 100% !important;
-        height: 100% !important;
-        border: 0 !important;
-        display: block !important;
-      }
-    </style>
-    `;
-
-    const autoPlayScript = `
-    <script>
-      (function() {
-        var clicked = false;
-        function triggerAutoPlay() {
-          if (clicked) return true;
-          var el = document.querySelector('.player_select_item');
-          if (el && typeof $ !== 'undefined') {
-            clicked = true;
-            $(el).trigger('click');
-            return true;
-          }
-          return false;
-        }
-        triggerAutoPlay();
-        if (typeof MutationObserver !== 'undefined') {
-          var observer = new MutationObserver(function() {
-            if (triggerAutoPlay()) {
-              observer.disconnect();
-            }
-          });
-          observer.observe(document.documentElement, { childList: true, subtree: true });
-        }
-        var pollInterval = setInterval(function() {
-          if (triggerAutoPlay()) {
-            clearInterval(pollInterval);
-          }
-        }, 10);
-        setTimeout(function() { clearInterval(pollInterval); }, 6000);
-      })();
-    </script>
-    `;
-
-    if (html.includes('</head>')) {
-      html = html.replace('</head>', `${fallbackStyles}</head>`);
-    } else {
-      html = fallbackStyles + html;
-    }
-
-    if (html.includes('</body>')) {
-      html = html.replace('</body>', `${autoPlayScript}</body>`);
-    } else {
-      html = html + autoPlayScript;
-    }
-
+    // Fallback com estilos e auto-play
+    html = cleanAndEnhancePlayerHtml(html);
     return res.status(200).send(html);
   } catch (err) {
     return res.status(500).send(`Proxy Error: ${err.message}`);
   }
 }
 
-// Limpeza profunda de anúncios, bloqueio de popups e aceleração do player vaiquecol
+// Limpeza profunda de anúncios, bloqueio de popups e auto-start do player
 function cleanAndEnhancePlayerHtml(rawHtml) {
   let cleaned = rawHtml;
 
-  // 1. Desativa popups e abas invasivas
   const antiAdScript = `
   <script>
     (function() {
@@ -324,14 +330,40 @@ function cleanAndEnhancePlayerHtml(rawHtml) {
           }
         }
       });
+
+      // Monitor de erros do JWPlayer para comunicação instantânea com o app
+      window.addEventListener('load', function() {
+        var checkJwInterval = setInterval(function() {
+          if (typeof jwplayer === 'function') {
+            try {
+              var p = jwplayer('player');
+              if (p && typeof p.on === 'function') {
+                clearInterval(checkJwInterval);
+                p.on('error', function(e) {
+                  console.warn('[Player JW Error]', e);
+                  try {
+                    window.parent.postMessage({ type: 'PLAYER_STREAM_ERROR', message: e.message || 'Erro no player' }, '*');
+                  } catch(_) {}
+                });
+                p.on('setupError', function(e) {
+                  console.warn('[Player Setup Error]', e);
+                  try {
+                    window.parent.postMessage({ type: 'PLAYER_STREAM_ERROR', message: e.message || 'Erro de setup' }, '*');
+                  } catch(_) {}
+                });
+              }
+            } catch(_) {}
+          }
+        }, 300);
+        setTimeout(function() { clearInterval(checkJwInterval); }, 8000);
+      });
     })();
   </script>
   `;
 
-  // 2. CSS para remover qualquer banner de propaganda, contadores ou sobreposições de clique
   const antiAdCss = `
   <style>
-    /* Ocultação de camadas de propaganda e interceptores invisíveis */
+    /* Ocultação total de camadas de propaganda e interceptores invisíveis */
     .pppx,
     .rek,
     .rek_close,
@@ -346,7 +378,27 @@ function cleanAndEnhancePlayerHtml(rawHtml) {
       height: 0 !important;
     }
 
-    /* Player ocupando 100% da tela */
+    .players_select_container,
+    .player_select_header,
+    .select_languages,
+    .languages_selector,
+    .select_language,
+    .players_select,
+    .player_select_item,
+    .player_bg,
+    .player_bg_container,
+    .changeOptions,
+    .embedder_info,
+    .without_players_warning {
+      display: none !important;
+      opacity: 0 !important;
+      visibility: hidden !important;
+      pointer-events: none !important;
+      width: 0 !important;
+      height: 0 !important;
+    }
+
+    /* Player ocupando 100% da viewport */
     html, body {
       width: 100% !important;
       height: 100% !important;
@@ -365,7 +417,7 @@ function cleanAndEnhancePlayerHtml(rawHtml) {
   </style>
   `;
 
-  // 3. Roteia chamadas de /player/ para o proxy com referer correto
+  // Roteia chamadas de /player/index.php para o proxy
   cleaned = cleaned.replace(/['"]\/player\/index\.php/g, '"/player/index.php');
 
   if (cleaned.includes('</head>')) {

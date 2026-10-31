@@ -1510,6 +1510,19 @@
         updateHistoryDrawerUi();
       });
 
+      // Detector inteligente de falha no stream com contingência automática para o Canal 2
+      window.addEventListener('message', (event) => {
+        if (event.data && event.data.type === 'PLAYER_STREAM_ERROR') {
+          console.warn('[StreamFlix] Falha no player detectada:', event.data);
+          showToast('Canal 1 indisponível para este título. Alternando para Canal 2...', true);
+          setTimeout(() => {
+            if (canalAtivo === 1) {
+              selecionarCanal(2);
+            }
+          }, 1200);
+        }
+      });
+
       // Fechar modal com tecla ESC
       document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') closePlayerModal();
