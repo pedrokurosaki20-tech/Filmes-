@@ -30,7 +30,9 @@ export default async function handler(req, res) {
   const method = req.method;
 
   let targetUrl = 'https://plenoflu.com';
-  if (queryPath) {
+  if (queryPath.startsWith('proxy-vaiquecol')) {
+    targetUrl = req.query.url ? decodeURIComponent(req.query.url) : 'https://vaiquecol.com';
+  } else if (queryPath) {
     targetUrl += queryPath.startsWith('/') ? queryPath : '/' + queryPath;
   }
 
@@ -70,15 +72,10 @@ export default async function handler(req, res) {
       if (json && json.data && json.data.video_url) {
         try {
           const rawUrl = Buffer.from(json.data.video_url, 'base64').toString('utf-8');
-          // Canal 1: Se apontar para vaiquecol.com (domínio desativado com 404),
-          // substitui pelo player direto canônico para manter a reprodução direta sem CAPTCHA ou opções
+          // Canal 1: Se apontar para vaiquecol.com, roteia pelo proxy do Plenoflu para manter o Referer oficial
           if (rawUrl.includes('vaiquecol.com')) {
-            const imdbMatch = rawUrl.match(/(tt\d+)/);
-            const imdbId = imdbMatch ? imdbMatch[1] : '';
-            if (imdbId) {
-              const directPlayerUrl = `https://vidsrc.pm/embed/movie/${imdbId}`;
-              json.data.video_url = Buffer.from(directPlayerUrl).toString('base64');
-            }
+            const proxiedUrl = `/api-plenoflu/proxy-vaiquecol?url=${encodeURIComponent(rawUrl)}`;
+            json.data.video_url = Buffer.from(proxiedUrl).toString('base64');
           }
         } catch (_) {
           // Mantém URL original caso ocorra falha de decodificação
@@ -143,10 +140,29 @@ export default async function handler(req, res) {
     </style>
     `;
 
+    const autoPlayScript = `
+    <script>
+      $(document).ready(function() {
+        setTimeout(function() {
+          var firstItem = $('.player_select_item').first();
+          if (firstItem.length && !$('.player_container').hasClass('visible')) {
+            firstItem.trigger('click');
+          }
+        }, 120);
+      });
+    </script>
+    `;
+
     if (html.includes('</head>')) {
       html = html.replace('</head>', `${playerStyles}</head>`);
     } else {
       html = playerStyles + html;
+    }
+
+    if (html.includes('</body>')) {
+      html = html.replace('</body>', `${autoPlayScript}</body>`);
+    } else {
+      html = html + autoPlayScript;
     }
 
     return res.status(200).send(html);

@@ -23,7 +23,15 @@ function plenofluDevPlugin() {
 
         const rawUrl = req.url || '';
         const isApi = rawUrl === '/api' || rawUrl.startsWith('/api?') || rawUrl === 'api';
-        const targetUrl = isApi ? 'https://plenoflu.com/api' : `https://plenoflu.com${rawUrl}`;
+        let targetUrl = 'https://plenoflu.com';
+        if (rawUrl.startsWith('/proxy-vaiquecol')) {
+          const uParam = new URL(rawUrl, 'http://localhost').searchParams.get('url');
+          targetUrl = uParam ? decodeURIComponent(uParam) : 'https://vaiquecol.com';
+        } else if (isApi) {
+          targetUrl = 'https://plenoflu.com/api';
+        } else {
+          targetUrl = `https://plenoflu.com${rawUrl}`;
+        }
 
         try {
           const fetchHeaders: Record<string, string> = {
@@ -55,14 +63,10 @@ function plenofluDevPlugin() {
             if (json && json.data && json.data.video_url) {
               try {
                 const rawVideoUrl = Buffer.from(json.data.video_url, 'base64').toString('utf-8');
-                // Canal 1: Substitui vaiquecol.com (404) pelo player direto funcional
+                // Canal 1: Mantém o canal oficial do SuperCDN/Plenoflu roteando pelo proxy local para enviar o Referer plenoflu.com
                 if (rawVideoUrl.includes('vaiquecol.com')) {
-                  const imdbMatch = rawVideoUrl.match(/(tt\d+)/);
-                  const imdbId = imdbMatch ? imdbMatch[1] : '';
-                  if (imdbId) {
-                    const directUrl = `https://vidsrc.pm/embed/movie/${imdbId}`;
-                    json.data.video_url = Buffer.from(directUrl).toString('base64');
-                  }
+                  const proxiedUrl = `/api-plenoflu/proxy-vaiquecol?url=${encodeURIComponent(rawVideoUrl)}`;
+                  json.data.video_url = Buffer.from(proxiedUrl).toString('base64');
                 }
               } catch (_) {}
             }
@@ -121,10 +125,30 @@ function plenofluDevPlugin() {
             }
           </style>
           `;
+
+          const autoPlayScript = `
+          <script>
+            $(document).ready(function() {
+              setTimeout(function() {
+                var firstItem = $('.player_select_item').first();
+                if (firstItem.length && !$('.player_container').hasClass('visible')) {
+                  firstItem.trigger('click');
+                }
+              }, 120);
+            });
+          </script>
+          `;
+
           if (html.includes('</head>')) {
             html = html.replace('</head>', `${styles}</head>`);
           } else {
             html = styles + html;
+          }
+
+          if (html.includes('</body>')) {
+            html = html.replace('</body>', `${autoPlayScript}</body>`);
+          } else {
+            html = html + autoPlayScript;
           }
 
           res.writeHead(response.status, {

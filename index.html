@@ -11,8 +11,8 @@
     <meta name="twitter:card" content="summary_large_image" />
 
     <!-- Aceleração de Conexão Rápida (Preconnect e DNS-Prefetch para os 3 Canais e TMDB) -->
-    <link rel="preconnect" href="https://vidsrc.pm" crossorigin />
-    <link rel="dns-prefetch" href="https://vidsrc.pm" />
+    <link rel="preconnect" href="https://plenoflu.com" crossorigin />
+    <link rel="dns-prefetch" href="https://plenoflu.com" />
     <link rel="preconnect" href="https://superflixapi.fun" crossorigin />
     <link rel="dns-prefetch" href="https://superflixapi.fun" />
     <link rel="preconnect" href="https://streambetter.lol" crossorigin />
@@ -421,8 +421,6 @@
                 <span id="modal-year" class="text-white font-medium"></span>
                 <span>•</span>
                 <span id="modal-channel-badge" class="uppercase text-emerald-400 font-bold font-mono text-[11px]">CANAL 1 (REPRODUÇÃO DIRETA)</span>
-                <span>•</span>
-                <span id="modal-endpoint-label" class="text-neutral-400 font-mono text-[11px] truncate max-w-xs">vidsrc.pm</span>
               </div>
               <h2 id="modal-full-title" class="text-base sm:text-xl font-bold text-white mt-1">--</h2>
             </div>
@@ -963,19 +961,27 @@
         let hintMsg = '';
 
         if (canalNumero === 1) {
-          // CANAL 1: Reprodução direta sem CAPTCHA e sem opções de servidores
-          badgeLabel = 'CANAL 1 (REPRODUÇÃO DIRETA)';
-          audioLabel = '🔊 PLAYER DIRETO MULTILÍNGUE';
-          toastMsg = 'Canal 1: Reprodução Direta';
-          hintMsg = '• Canal 1: Reprodução direta instantânea';
-          streamUrl = isTv
-            ? `https://vidsrc.pm/embed/tv/${currentImdbId}/${s}/${ep}`
-            : `https://vidsrc.pm/embed/movie/${currentImdbId}`;
+          // CANAL 1: SuperCDN / Plenoflu Oficial (Pobre Play)
+          badgeLabel = 'CANAL 1 (SUPERCDN OFICIAL)';
+          audioLabel = '🇧🇷 DUBLADO / ORIGINAL';
+          toastMsg = 'Canal 1: SuperCDN Oficial';
+          hintMsg = '• Canal 1: Reprodução oficial SuperCDN (Pobre Play)';
+          const isProxy = typeof window !== 'undefined' && (
+            window.location.hostname.includes('localhost') || 
+            window.location.hostname.includes('127.0.0.1') || 
+            window.location.hostname.includes('run.app') || 
+            window.location.hostname.includes('vercel.app')
+          );
+          const cleanType = isTv ? 'tvshow' : 'movie';
+          const sPath = isTv ? `/${s}/${ep}` : '';
+          streamUrl = isProxy
+            ? `/api-plenoflu/${cleanType}/${currentImdbId}${sPath}`
+            : `https://plenoflu.com/${cleanType}/${currentImdbId}${sPath}`;
 
         } else if (canalNumero === 2) {
           // CANAL 2: Verificação CAPTCHA + Servidores + Idiomas (Dublado / Legendado)
           badgeLabel = 'CANAL 2 (VERIFICAÇÃO & SERVIDORES)';
-          audioLabel = '🇧🇷 DUBLADO / LEGENDADO (SUPERFLIX)';
+          audioLabel = '🇧🇷 DUBLADO / LEGENDADO';
           toastMsg = 'Canal 2: Verificação e Servidores';
           hintMsg = '• Canal 2: Verificação CAPTCHA + Servidores e Idiomas';
           streamUrl = isTv
@@ -983,17 +989,17 @@
             : `https://superflixapi.fun/filme/${currentImdbId}#noEpList`;
 
         } else if (canalNumero === 3) {
-          // CANAL 3: Verificação CAPTCHA + Reprodução direta sem menus do Canal 2
-          badgeLabel = 'CANAL 3 (VERIFICAÇÃO & DIRETO)';
-          audioLabel = '⚡ PLAYER RÁPIDO VERIFICADO';
-          toastMsg = 'Canal 3: Verificação e Reprodução Direta';
-          hintMsg = '• Canal 3: Validação de segurança com reprodução direta';
+          // CANAL 3: StreamBetter (reprodução alternativa rápida)
+          badgeLabel = 'CANAL 3 (STREAMBETTER)';
+          audioLabel = '⚡ REPRODUÇÃO RÁPIDA';
+          toastMsg = 'Canal 3: StreamBetter';
+          hintMsg = '• Canal 3: Player alternativo StreamBetter';
           if (!isTv && currentTmdbId) {
             streamUrl = `https://streambetter.lol/filme/${currentTmdbId}?key=sb_pk_49d645d49ff1a48b6bba90db256a9ea5c308fd26acabb415`;
           } else if (isTv) {
-            streamUrl = `https://vidsrc.pm/embed/tv/${currentImdbId}/${s}/${ep}`;
+            streamUrl = `https://streambetter.lol/serie/${currentTmdbId || currentImdbId}/${s}/${ep}`;
           } else {
-            streamUrl = `https://www.2embed.cc/embed/${currentImdbId}`;
+            streamUrl = `https://streambetter.lol/filme/${currentImdbId}`;
           }
         }
 
@@ -1007,17 +1013,6 @@
 
         const hintEl = document.getElementById('channel-desc-hint');
         if (hintEl) hintEl.innerText = hintMsg;
-
-        const endpointLabel = document.getElementById('modal-endpoint-label');
-        if (endpointLabel) {
-          try {
-            const host = new URL(streamUrl).hostname;
-            endpointLabel.innerText = host;
-            endpointLabel.title = streamUrl;
-          } catch (_) {
-            endpointLabel.innerText = streamUrl;
-          }
-        }
 
         // Injeta o player com os atributos oficiais recomendados pelas APIs (sem sandbox que aciona bloqueios dos provedores)
         const frame = document.getElementById('SuperCDNContainerVideo') || document.getElementById('iframe-mount-point');
@@ -1304,7 +1299,7 @@
             btnText.innerText = "Copiado!";
             setTimeout(() => btnText.innerText = original, 2000);
           }
-          showToast("URL do embed SuperCDN copiada!");
+          showToast("Link de reprodução copiado!");
         }).catch(() => {
           showToast("Não foi possível copiar automaticamente.", true);
         });

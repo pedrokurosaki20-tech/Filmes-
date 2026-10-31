@@ -331,10 +331,10 @@ export function obterUrlCanalPlayer(
   }
 
   if (canalNumero === 3) {
-    // CANAL 3 — Verificação e reprodução direta (Prossegue direto ao player de vídeo após verificação)
+    // CANAL 3 — StreamBetter (reprodução alternativa direta)
     return isTv
-      ? `https://vidsrc.pm/embed/tv/${imdbId}/${s}/${ep}`
-      : `https://vidsrc.pm/embed/movie/${imdbId}`;
+      ? `https://streambetter.lol/serie/${imdbId}/${s}/${ep}`
+      : `https://streambetter.lol/filme/${imdbId}`;
   }
 
   return montarUrlSuperCDN(imdbId, tipo, season, episode);
